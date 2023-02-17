@@ -1,12 +1,10 @@
 import socket
 
-
-
-ip = "127.0.0.1"
-port = 100
+IP = "127.0.0.1"
+PORT = 1025
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.bind((ip, port))
+server.bind((IP, PORT))
 server.listen(1)
 
 while True:

@@ -2,7 +2,7 @@ import customtkinter
 import Download
 import Upload
 
-import client
+import FTP_client
 
 # define frame appearance
 customtkinter.set_appearance_mode("dark")
@@ -15,7 +15,7 @@ frame = customtkinter.CTkFrame(master=root)
 frame.pack(pady=20, padx=60, fill="both", expand=True)
 
 # LABEL
-label = customtkinter.CTkLabel(master=frame, text="Your IP is: " + client.connectDHCP())
+label = customtkinter.CTkLabel(master=frame, text="Your IP is: " + FTP_client.connectDHCP())
 label.pack(pady=12, padx=10)
 
 entry1 = customtkinter.CTkEntry(master=frame, placeholder_text="FTP Server Address", )

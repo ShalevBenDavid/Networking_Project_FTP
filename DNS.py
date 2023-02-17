@@ -1,34 +1,37 @@
 import socket
 
+MAX_BYTES = 1024
+IP = '127.0.0.1'
+PORT = 1026
 
-# define the host and port to bind the server socket
-HOST = '127.0.0.1'
-PORT = 5354
-
-# create a UDP socket and bind it to the specified host and port
-server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-server_socket.bind((HOST, PORT))
-
-# define a dictionary of domain names and their corresponding IP addresses
-records = {
+# List of domains and their IP address.
+Domains = {
     'ftplace.com': '192.0.2.1',
     'www.ftplace.com': '192.0.2.1',
-    'example.com': '176.4.2.2',
-    'www.example.com': '176.4.2.2'
 }
 
-print("Listening in port 5354...")
+if __name__ == '__main__':
+    print("(*) Starting DNS server...")
 
-while True:
-    # receive a message from the client
-    data, client_address = server_socket.recvfrom(1024)
-    query = data.decode().strip()
+    # Create a UDP socket.
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    # Bind an ip and a port to the socket.
+    server_socket.bind((IP, PORT))
+    print("(*) Binding was successful.")
+    print("(*) Listening...")
 
-    # if the query matches one of the domain names in our records, send back the IP address
-    if query in records:
-        response = records[query]
-    else:
-        response = 'not found'
-
-    # send the response back to the client
-    server_socket.sendto(response.encode(), client_address)
+    # Keep listening.
+    while True:
+        # Receive a message from the client.
+        data, client_address = server_socket.recvfrom(MAX_BYTES)
+        # Extract the DNS request.
+        dns_request = data.decode().strip()
+        # If the DNS holds the answer then send the client the IP address.
+        if dns_request in Domains:
+            response = Domains[dns_request]
+            print("(+) DNS query was successful.")
+        else:
+            response = 'No matches'
+            print("(-) DNS query failed.")
+        # Send response to the client.
+        server_socket.sendto(response.encode(), client_address)
