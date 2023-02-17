@@ -18,8 +18,9 @@ def connectDHCP():
     # Send out a DHCP request to the server.
     dhcp_server.send(bytes("Please give me an IP", "utf-8"))
     # Receive a DHCP answer from the server.
-    answer = dhcp_server.recv(MAX_BYTES).decode("uft-8")
+    answer = dhcp_server.recv(MAX_BYTES).decode("utf-8")
     # Return the answer from the DHCP.
+    print("DHCP: ", answer)
     return answer
 
 
@@ -30,6 +31,7 @@ def connectDNS():
     server_address_dns = (LOCAL_IP, DNS_PORT)
     # Create a UDP socket to connect to the DNS.
     client_socket_dns = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
     while True:
         # Receive a domain name from the user.
         domain_name = input('Enter the domain name: ')
@@ -37,8 +39,12 @@ def connectDNS():
         client_socket_dns.sendto(domain_name.encode(), server_address_dns)
         # Receive a DNS answer from the server.
         answer, server_address = client_socket_dns.recvfrom(MAX_BYTES)
-        # Return the answer from the DNS.
-        return answer
+        # Decode the answer in uft-8 formant.
+        answer = answer.decode("utf-8")
+        # Print and return the answer from the DNS.
+        print("DNS: ", answer)
+        if answer != "No matches":
+            return answer
 
 
 if __name__ == '__main__':
