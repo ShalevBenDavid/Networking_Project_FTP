@@ -33,8 +33,9 @@ def connectDNS():
     client_socket_dns = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
     while True:
+
         # Receive a domain name from the user.
-        domain_name = input('Enter the domain name: ')
+        domain_name = getDomain()
         # Send out a DNS query to the server.
         client_socket_dns.sendto(domain_name.encode(), server_address_dns)
         # Receive a DNS answer from the server.
@@ -44,9 +45,83 @@ def connectDNS():
         # Print and return the answer from the DNS.
         print("DNS: ", answer)
         if answer != "No matches":
+            enable_buttons()
             return answer
+        else:
+            clear_entry()
+
+
+import tkinter
+from tkinter import *
+
+import customtkinter
+from GUI import Download, Upload
+
+# define frame appearance
+customtkinter.set_appearance_mode("dark")
+customtkinter.set_default_color_theme("dark-blue")
+root = customtkinter.CTk()
+root.title("FTPlace")
+root.geometry("500x500")
+
+frame = customtkinter.CTkFrame(master=root)
+frame.pack(pady=20, padx=60, fill="both", expand=True)
+
+
+# Clear the entry text field.
+def clear_entry():
+    entry1.delete(0, tkinter.END)
+
+
+# Enable the button's usage
+def enable_buttons():
+    downloadButton.configure(True, state=NORMAL)
+    uploadButton.configure(True, state=NORMAL)
+
+
+# Returns the domain the user entered
+def getDomain():
+    if len(entry1.get()) != 0:
+        return entry1.get()
+    else:
+        # Disable buttons
+        downloadButton.configure(True, state=DISABLED)
+        uploadButton.configure(True, state=DISABLED)
+        entry1.delete(0, tkinter.END)
+
+
+# LABELS
+try:
+    label = customtkinter.CTkLabel(master=frame, text="IP: "+connectDHCP())
+    label.pack(pady=12, padx=10)
+except:
+    print("(-) DHCP server problem, run the DHCP server first")
+    exit(-1)
+
+entry1 = customtkinter.CTkEntry(master=frame, placeholder_text="FTP Server Address")
+entry1.pack(pady=12, padx=10)
+
+# BUTTONS
+
+# Checks if the domain is correct via 'ok' button or 'ENTER' key.
+okButton = customtkinter.CTkButton(master=frame, text="OK", command=connectDNS)
+okButton.pack(pady=12, padx=10)
+root.bind('<Return>', lambda event: okButton.invoke())
+
+
+# Opens a new window for downloading files.
+downloadButton = customtkinter.CTkButton(master=frame, text="Download", command=Download.download_win, state=DISABLED)
+downloadButton.pack(pady=12, padx=10)
+
+# Opens a new window for uploading files.
+uploadButton = customtkinter.CTkButton(master=frame, text="Upload", command=Upload.upload_win, state=DISABLED)
+uploadButton.pack()
+
+
+def createGUI():
+    root.mainloop()
 
 
 if __name__ == '__main__':
-    connectDHCP()
-    connectDNS()
+    #connectDHCP()
+    createGUI()
