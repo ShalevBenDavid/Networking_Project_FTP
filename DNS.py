@@ -1,16 +1,14 @@
 import socket
 
-
-
-
 MAX_BYTES = 1024
 IP = '127.0.0.1'
 PORT = 1026
 
-# List of domains and their IP address.
+# List of domains and their IP address (All local)
 Domains = {
-    'ftplace.com': '192.0.2.1',
-    'www.ftplace.com': '192.0.2.1',
+    'ftplace.org': '192.0.0.1',
+    'google.com': '192.0.0.1',
+    'Outlook.net': '192.0.0.1',
 }
 
 if __name__ == '__main__':

@@ -10,8 +10,12 @@ if __name__ == '__main__':
     # Create a TCP socket.
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     # Bind an ip and a port to the socket.
-    server_socket.bind((IP, PORT))
-    print("(*) Binding was successful.")
+    try:
+        server_socket.bind((IP, PORT))
+        print("(+) Binding was successful.")
+    except socket.error as e:
+        print("(-) Binding failed:", e)
+        exit(1)
     # Make server listen for incoming connections.
     server_socket.listen(True)
     print("(*) Listening...")

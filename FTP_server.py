@@ -1,1 +1,5 @@
+import socket
 
+CLIENT_PORT = 78120
+SERVER_PORT = 41330
+LOCAL_IP = '127.0.0.1'

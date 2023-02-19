@@ -1,8 +1,14 @@
 import socket
+import tkinter
+from tkinter import *
+import customtkinter
+from GUI import Download, Upload
 
 MAX_BYTES = 1024
 DHCP_PORT = 1025
 DNS_PORT = 1026
+CLIENT_PORT = 78120
+SERVER_PORT = 41330
 LOCAL_IP = '127.0.0.1'
 
 
@@ -51,12 +57,6 @@ def connectDNS():
             clear_entry()
 
 
-import tkinter
-from tkinter import *
-
-import customtkinter
-from GUI import Download, Upload
-
 # define frame appearance
 customtkinter.set_appearance_mode("dark")
 customtkinter.set_default_color_theme("dark-blue")
@@ -92,7 +92,7 @@ def getDomain():
 
 # LABELS
 try:
-    label = customtkinter.CTkLabel(master=frame, text="IP: "+connectDHCP())
+    label = customtkinter.CTkLabel(master=frame, text="IP: " + connectDHCP())
     label.pack(pady=12, padx=10)
 except:
     print("(-) DHCP server problem, run the DHCP server first")
@@ -108,7 +108,6 @@ okButton = customtkinter.CTkButton(master=frame, text="OK", command=connectDNS)
 okButton.pack(pady=12, padx=10)
 root.bind('<Return>', lambda event: okButton.invoke())
 
-
 # Opens a new window for downloading files.
 downloadButton = customtkinter.CTkButton(master=frame, text="Download", command=Download.download_win, state=DISABLED)
 downloadButton.pack(pady=12, padx=10)
@@ -123,5 +122,4 @@ def createGUI():
 
 
 if __name__ == '__main__':
-    #connectDHCP()
     createGUI()
