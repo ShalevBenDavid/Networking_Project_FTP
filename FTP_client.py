@@ -1,8 +1,14 @@
+import os
+import shutil
 import socket
 import tkinter
 from tkinter import *
+from tkinter import filedialog
+
 import customtkinter
-from GUI import Download, Upload
+
+
+from GUI import Download
 
 MAX_BYTES = 1024
 DHCP_PORT = 1025
@@ -57,7 +63,7 @@ def connectDNS():
             clear_entry()
 
 
-# define frame appearance
+# Define frame appearance
 customtkinter.set_appearance_mode("dark")
 customtkinter.set_default_color_theme("dark-blue")
 root = customtkinter.CTk()
@@ -89,6 +95,18 @@ def getDomain():
         uploadButton.configure(True, state=DISABLED)
         entry1.delete(0, tkinter.END)
 
+# Uploads file from the file explorer.
+def upload_win():
+
+    domain = getDomain()
+    file_path = filedialog.askopenfilename()
+
+
+
+
+    # directory = "Server/" + domain
+    # new_file_path = os.path.join(directory, os.path.basename(file_path))
+    # shutil.copy(file_path, new_file_path)
 
 # LABELS
 try:
@@ -113,9 +131,22 @@ downloadButton = customtkinter.CTkButton(master=frame, text="Download", command=
 downloadButton.pack(pady=12, padx=10)
 
 # Opens a new window for uploading files.
-uploadButton = customtkinter.CTkButton(master=frame, text="Upload", command=Upload.upload_win, state=DISABLED)
+uploadButton = customtkinter.CTkButton(master=frame, text="Upload", command=upload_win, state=DISABLED)
 uploadButton.pack()
 
+
+# RADIO BUTTONS
+
+# Make the TCP button to be pressed by default.
+radio = tkinter.IntVar(value=1)
+
+# RUDP radio button.
+rudpRadio = customtkinter.CTkRadioButton(frame, text="RUDP", variable=radio, value=2)
+rudpRadio.pack(side="bottom")
+
+# TCP radio button.
+tcpRadio = customtkinter.CTkRadioButton(frame, text="TCP", variable=radio, value=1)
+tcpRadio.pack(side="bottom")
 
 def createGUI():
     root.mainloop()
