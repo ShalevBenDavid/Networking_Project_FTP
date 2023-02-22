@@ -2,7 +2,7 @@ import socket
 
 MAX_BYTES = 1024
 IP = '127.0.0.1'
-PORT = 1026
+PORT = 1027
 
 # List of domains and their IP address (All local)
 Domains = {
@@ -16,6 +16,10 @@ if __name__ == '__main__':
 
     # Create a UDP socket.
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    # Make the ports reusable.
+    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    # Make the socket handle broadcast IP addresses.
+    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
     # Bind an ip and a port to the socket.
     try:
         server_socket.bind((IP, PORT))
