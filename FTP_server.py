@@ -6,6 +6,7 @@ CLIENT_PORT = 78120
 SERVER_PORT = 41330
 LOCAL_IP = '127.0.0.1'
 
+
 def connectToServerTCP(domain):
     domain = FTP_client.getDomain()
     print("(*) Starting TCP Server ...")
@@ -31,6 +32,3 @@ def connectToServerTCP(domain):
         except socket.error as e:
             print("(-) Connection failed:", e)
             exit(1)
-
-
-

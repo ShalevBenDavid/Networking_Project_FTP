@@ -1,119 +1,129 @@
 import socket
+from random import randint
+from time import sleep
+
+from scapy.all import *
+
+from scapy.layers.dhcp import DHCP, BOOTP
+from scapy.layers.inet import UDP, IP
+from scapy.layers.l2 import Ether
 
 MAX_BYTES = 1024
-IP = "127.0.0.1"
-PORT = 1025
+DHCP_CLIENT_PORT = 68
+DHCP_SERVER_PORT = 67
 
 
-def offer_get():
-    OP = bytes([0x02])
-    HTYPE = bytes([0x01])
-    HLEN = bytes([0x06])
-    HOPS = bytes([0x00])
-    XID = bytes([0x39, 0x03, 0xF3, 0x26])
-    SECS = bytes([0x00, 0x00])
-    FLAGS = bytes([0x00, 0x00])
-    CIADDR = bytes([0x00, 0x00, 0x00, 0x00])
-    YIADDR = bytes([0xC0, 0xA8, 0x01, 0x64])  # 192.168.1.100
-    SIADDR = bytes([0xC0, 0xA8, 0x01, 0x01])  # 192.168.1.1
-    GIADDR = bytes([0x00, 0x00, 0x00, 0x00])
-    CHADDR1 = bytes([0x00, 0x05, 0x3C, 0x04])
-    CHADDR2 = bytes([0x8D, 0x59, 0x00, 0x00])
-    CHADDR3 = bytes([0x00, 0x00, 0x00, 0x00])
-    CHADDR4 = bytes([0x00, 0x00, 0x00, 0x00])
-    CHADDR5 = bytes(192)
-    Magiccookie = bytes([0x63, 0x82, 0x53, 0x63])
-    DHCPOptions1 = bytes([53, 1, 2])  # DHCP Offer
-    DHCPOptions2 = bytes([1, 4, 0xFF, 0xFF, 0xFF, 0x00])  # 255.255.255.0 subnet mask
-    DHCPOptions3 = bytes([3, 4, 0xC0, 0xA8, 0x01, 0x01])  # 192.168.1.1 router
-    DHCPOptions4 = bytes([51, 4, 0x00, 0x01, 0x51, 0x80])  # 86400s(1 day) IP address lease time
-    DHCPOptions5 = bytes([54, 4, 0xC0, 0xA8, 0x01, 0x01])  # DHCP server
-
-    package = OP + HTYPE + HLEN + HOPS + XID + SECS + FLAGS + CIADDR + YIADDR + SIADDR + GIADDR + CHADDR1 + CHADDR2 + CHADDR3 + CHADDR4 + CHADDR5 + Magiccookie + DHCPOptions1 + DHCPOptions2 + DHCPOptions3 + DHCPOptions4 + DHCPOptions5
-
-    return package
+# -------------------------------- Generate An IP To Offer Clients -------------------------------- #
+def generate_random_ip(ip_list):
+    while True:
+        client_ip = '192.' + '168.' + '1.' + str(randint(0, 255))
+        if client_ip not in ip_list:
+            ip_list.append(client_ip)
+            return client_ip
 
 
-def pack_get():
-    OP = bytes([0x02])
-    HTYPE = bytes([0x01])
-    HLEN = bytes([0x06])
-    HOPS = bytes([0x00])
-    XID = bytes([0x39, 0x03, 0xF3, 0x26])
-    SECS = bytes([0x00, 0x00])
-    FLAGS = bytes([0x00, 0x00])
-    CIADDR = bytes([0x00, 0x00, 0x00, 0x00])
-    YIADDR = bytes([0xC0, 0xA8, 0x01, 0x64])
-    SIADDR = bytes([0xC0, 0xA8, 0x01, 0x01])
-    GIADDR = bytes([0x00, 0x00, 0x00, 0x00])
-    CHADDR1 = bytes([0x00, 0x05, 0x3C, 0x04])
-    CHADDR2 = bytes([0x8D, 0x59, 0x00, 0x00])
-    CHADDR3 = bytes([0x00, 0x00, 0x00, 0x00])
-    CHADDR4 = bytes([0x00, 0x00, 0x00, 0x00])
-    CHADDR5 = bytes(192)
-    Magiccookie = bytes([0x63, 0x82, 0x53, 0x63])
-    DHCPOptions1 = bytes([53, 1, 5])  # DHCP ACK(value = 5)
-    DHCPOptions2 = bytes([1, 4, 0xFF, 0xFF, 0xFF, 0x00])  # 255.255.255.0 subnet mask
-    DHCPOptions3 = bytes([3, 4, 0xC0, 0xA8, 0x01, 0x01])  # 192.168.1.1 router
-    DHCPOptions4 = bytes([51, 4, 0x00, 0x01, 0x51, 0x80])  # 86400s(1 day) IP address lease time
-    DHCPOptions5 = bytes([54, 4, 0xC0, 0xA8, 0x01, 0x01])  # DHCP server
+# -------------------------------- Generate An IP For Broadcasting -------------------------------- #
+def generate_highest_ip(ip_list):
+    for i in range(0, 255):
+        broadcast_ip = "192.168.1." + str(255-i)
+        if broadcast_ip not in ip_list:
+            ip_list.append(broadcast_ip)
+            return broadcast_ip
+    return '255.255.255.255'
 
-    package = OP + HTYPE + HLEN + HOPS + XID + SECS + FLAGS + CIADDR + YIADDR + SIADDR + GIADDR + CHADDR1 + CHADDR2 + CHADDR3 + CHADDR4 + CHADDR5 + Magiccookie + DHCPOptions1 + DHCPOptions2 + DHCPOptions3 + DHCPOptions4 + DHCPOptions5
 
-    return package
+# -------------------------------- Create A DHCP Offer Packet -------------------------------- #
+def create_offer(server_ip, client_ip, broadcast_ip):
+    print("(*) Creating DHCP offer packet...")
+    # Ethernet layer
+    ethernet = Ether()
+    ethernet.dst = 'ff:ff:ff:ff:ff:ff'  # Broadcast.
+    # Network layer
+    ip = IP()
+    ip.src = server_ip
+    ip.dst = broadcast_ip
+    # Transport layer
+    udp = UDP()
+    udp.sport = DHCP_SERVER_PORT
+    udp.dport = DHCP_CLIENT_PORT
+    # Application layer
+    bootp = BOOTP()
+    bootp.flags = 2  # Replay type message.
+    bootp.yiaddr = client_ip  # Suggest random IP.
+    bootp.siaddr = server_ip  # DHCP server IP.
+    bootp.giaddr = '0.0.0.0'  # no relay agent.
+    bootp.xid = 666666  # XID
+    # DHCP type message
+    dhcp = DHCP()
+    dhcp.options = [("message-type", "offer"), ('server_id', server_ip), ('subnet_mask', '255.255.255.0'),
+                    ('lease_time', 2000), "end"]
+
+    # Constructing the offer packet and sending it.
+    offer = ethernet / ip / udp / bootp / dhcp
+    print("(+) Sending DHCP offer.")
+    sendp(offer)
+
+
+# -------------------------------- Create A DHCP ACK Packet -------------------------------- #
+def create_ack(server_ip, client_ip, broadcast_ip):
+    print("(*) Creating DHCP ACK packet...")
+    # Ethernet layer
+    ethernet = Ether()
+    ethernet.dst = 'ff:ff:ff:ff:ff:ff'  # Broadcast.
+    # Network layer
+    ip = IP()
+    ip.src = server_ip
+    ip.dst = broadcast_ip
+    # Transport layer
+    udp = UDP()
+    udp.sport = DHCP_SERVER_PORT
+    udp.dport = DHCP_CLIENT_PORT
+    # Application layer
+    bootp = BOOTP()
+    bootp.flags = 2  # Replay type message.
+    bootp.yiaddr = client_ip  # Suggest random IP.
+    bootp.siaddr = server_ip  # DHCP server IP.
+    bootp.giaddr = '0.0.0.0'  # No relay agent.
+    bootp.xid = 666666  # XID
+    # DHCP type message
+    dhcp = DHCP()
+    dhcp.options = [("message-type", "ack"), "end"]
+
+    # Constructing the ACK packet and sending it.
+    ack_packet = ethernet / ip / udp / bootp / dhcp
+    print("(+) Sending DHCP ACK.")
+    sendp(ack_packet)
 
 
 if __name__ == '__main__':
     print("(*) Starting DHCP server...")
-
-    # Create a TCP socket.
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    # Make the ports reusable.
-    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    # Make the socket handle broadcast IP addresses.
-    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-    # Bind an ip and a port to the socket.
-    try:
-        server_socket.bind((IP, PORT))
-        print("(+) Binding was successful.")
-    except socket.error as e:
-        print("(-) Binding failed:", e)
-        exit(1)
-    # Make server listen for incoming connections.
-    server_socket.listen(True)
-    print("(*) Listening...")
-
-    # Keep listening.
+    # Create a list of used IPs.
+    IP_LIST = []
+    # Generate IP for server.
+    SERVER_IP = generate_random_ip(IP_LIST)
+    print("(+) Server IP: ", SERVER_IP)
+    # Keep accepting clients.
     while True:
-        # Accept a connection from the client.
-        try:
-            client, address = server_socket.accept()
-            print("(+) Connection was successful.", address)
-        except socket.error as e:
-            print("(-) Connection failed:", e)
-            exit(1)
-        # Receive the DHCP request from the client.
-        dhcp_request = client.recv(MAX_BYTES)#.decode("utf-8")
-        print("(+) Client request: ", dhcp_request)
-        # Get the DHCP offer for the client and send him.
-        data = offer_get()
-        print("Send DHCP offer.")
-        client.send(data)
-        while True:
-            try:
-                print("Wait DHCP request.")
-                data = client.recv(MAX_BYTES)#.decode("utf-8")
-                print("Receive DHCP request.")
-                print(data)
-
-                print("Send DHCP pack.\n")
-                data = pack_get()
-                client.send(data)
-                break
-            except:
-                raise
-
-        client.send("Your IP is : 184.10.10.50".encode())
-        # Closing TCP connection.
-        print("(*) Closing connection with client.", address)
-        client.close()
+        # Generate suggested IP for the next client.
+        CLIENT_IP = generate_random_ip(IP_LIST)
+        # Generate broadcast IP for the next client.
+        BROADCAST_IP = generate_highest_ip(IP_LIST)
+        print("(+) Next Client IP suggestion: ", CLIENT_IP)
+        print("(+) Next Client IP broadcast: ", BROADCAST_IP, "\n")
+        # -------------------------------- Wait For DHCP Discovery Packet -------------------------------- #
+        print("(*) Waiting for DHCP discovery...")
+        # Sniff only from DHCP client port.
+        sniff(count=1, filter="udp and (port 68)")
+        print("(+) Got a DHCP discovery packet.")
+        # -------------------------------- Send DHCP Offer Packet -------------------------------- #
+        create_offer(SERVER_IP, CLIENT_IP, BROADCAST_IP)
+        # -------------------------------- Wait For DHCP Request Packet -------------------------------- #
+        print("(*) Waiting for DHCP request...")
+        # Sniff only from DHCP client port.
+        sniff(count=1, filter="udp and (port 68)")
+        print("(+) Got a DHCP request packet.")
+        # -------------------------------- Send DHCP ACK Packet -------------------------------- #
+        create_ack(SERVER_IP, CLIENT_IP, BROADCAST_IP)
+        # Delete the broadcast IP since it is no longer in use.
+        IP_LIST.remove(BROADCAST_IP)
+        sleep(2)

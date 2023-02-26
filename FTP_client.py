@@ -1,99 +1,95 @@
-import os
-import shutil
-import socket
 import tkinter
 from tkinter import *
 from tkinter import filedialog
+
 import customtkinter
+from scapy.all import *
+from scapy.layers.dhcp import DHCP, BOOTP
+from scapy.layers.inet import UDP
+from scapy.layers.l2 import Ether
+
+from DHCP import IP
 from GUI import Download
 
 MAX_BYTES = 1024
-DHCP_PORT = 1025
-DNS_PORT = 1027
-CLIENT_PORT = 78120
-SERVER_PORT = 41330
+DHCP_CLIENT_PORT = 68
+DHCP_SERVER_PORT = 67
+DNS_PORT = 1028
 LOCAL_IP = '127.0.0.1'
 
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Connect DHCP <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< #
 def connectDHCP():
-    def discover_get():
-        OP = bytes([0x01])
-        HTYPE = bytes([0x01])
-        HLEN = bytes([0x06])
-        HOPS = bytes([0x00])
-        XID = bytes([0x39, 0x03, 0xF3, 0x26])
-        SECS = bytes([0x00, 0x00])
-        FLAGS = bytes([0x00, 0x00])
-        CIADDR = bytes([0x00, 0x00, 0x00, 0x00])
-        YIADDR = bytes([0x00, 0x00, 0x00, 0x00])
-        SIADDR = bytes([0x00, 0x00, 0x00, 0x00])
-        GIADDR = bytes([0x00, 0x00, 0x00, 0x00])
-        CHADDR1 = bytes([0x00, 0x05, 0x3C, 0x04])
-        CHADDR2 = bytes([0x8D, 0x59, 0x00, 0x00])
-        CHADDR3 = bytes([0x00, 0x00, 0x00, 0x00])
-        CHADDR4 = bytes([0x00, 0x00, 0x00, 0x00])
-        CHADDR5 = bytes(192)
-        Magiccookie = bytes([0x63, 0x82, 0x53, 0x63])
-        DHCPOptions1 = bytes([53, 1, 1])
-        DHCPOptions2 = bytes([50, 4, 0xC0, 0xA8, 0x01, 0x64])
+    # -------------------------------- Create a DHCP discover packet -------------------------------- #
+    print("(*) Creating DHCP discover packet.")
+    # Ethernet layer
+    ethernet = Ether()
+    ethernet.dst = 'ff:ff:ff:ff:ff:ff'  # Broadcast.
+    # Network layer
+    ip = IP()
+    ip.src = '0.0.0.0'
+    ip.dst = '255.255.255.255'
+    # Transport layer
+    udp = UDP()
+    udp.sport = DHCP_CLIENT_PORT
+    udp.dport = DHCP_SERVER_PORT
+    # Application layer
+    bootp = BOOTP()
+    bootp.flags = 1  # Request type message.
+    bootp.xid = 666666  # XID
+    # DHCP type message
+    dhcp = DHCP()
+    dhcp.options = [("message-type", "discover"), "end"]
 
-        package = OP + HTYPE + HLEN + HOPS + XID + SECS + FLAGS + CIADDR + YIADDR + SIADDR + GIADDR + CHADDR1 + CHADDR2 + CHADDR3 + CHADDR4 + CHADDR5 + Magiccookie + DHCPOptions1 + DHCPOptions2
+    # Constructing the Discover packet and sending it.
+    discover_packet = ethernet / ip / udp / bootp / dhcp
+    print("(+) Sending DHCP discover.")
+    sendp(discover_packet)
 
-        return package
+    # -------------------------------- Wait For DHCP Offer Packet -------------------------------- #
+    print("(*) Waiting for DHCP offer...")
+    # Sniff only from DHCP server port.
+    offer = sniff(count=1, filter="udp and (port 67)")
+    # Pull the client IP the DHCP server offered.
+    client_ip = offer[0][3].yiaddr
+    # Pull the DHCP server's IP.
+    server_ip = offer[0][3].siaddr
+    print("(+) Got a DHCP offer packet.")
 
-    def request_get():
-        OP = bytes([0x01])
-        HTYPE = bytes([0x01])
-        HLEN = bytes([0x06])
-        HOPS = bytes([0x00])
-        XID = bytes([0x39, 0x03, 0xF3, 0x26])
-        SECS = bytes([0x00, 0x00])
-        FLAGS = bytes([0x00, 0x00])
-        CIADDR = bytes([0x00, 0x00, 0x00, 0x00])
-        YIADDR = bytes([0x00, 0x00, 0x00, 0x00])
-        SIADDR = bytes([0x00, 0x00, 0x00, 0x00])
-        GIADDR = bytes([0x00, 0x00, 0x00, 0x00])
-        CHADDR1 = bytes([0x00, 0x0C, 0x29, 0xDD])
-        CHADDR2 = bytes([0x5C, 0xA7, 0x00, 0x00])
-        CHADDR3 = bytes([0x00, 0x00, 0x00, 0x00])
-        CHADDR4 = bytes([0x00, 0x00, 0x00, 0x00])
-        CHADDR5 = bytes(192)
-        Magiccookie = bytes([0x63, 0x82, 0x53, 0x63])
-        DHCPOptions1 = bytes([53, 1, 3])
-        DHCPOptions2 = bytes([50, 4, 0xC0, 0xA8, 0x01, 0x64])
-        DHCPOptions3 = bytes([54, 4, 0xC0, 0xA8, 0x01, 0x01])
+    # -------------------------------- Create a DHCP request packet -------------------------------- #
+    print("(*) Creating DHCP request packet.")
+    # Ethernet layer
+    ethernet = Ether()
+    ethernet.dst = 'ff:ff:ff:ff:ff:ff'  # Broadcast.
+    # Network layer
+    ip = IP()
+    ip.src = '0.0.0.0'
+    ip.dst = '255.255.255.255'
+    # Transport layer
+    udp = UDP()
+    udp.sport = DHCP_CLIENT_PORT
+    udp.dport = DHCP_SERVER_PORT
+    # Application layer
+    bootp = BOOTP()
+    bootp.flags = 1  # Request type message.
+    bootp.xid = 666666  # XID
+    # DHCP type message
+    dhcp = DHCP()
+    dhcp.options = [("message-type", "request"), ('requested_addr', client_ip), ('server_id', server_ip), "end"]
 
-        package = OP + HTYPE + HLEN + HOPS + XID + SECS + FLAGS + CIADDR + YIADDR + SIADDR + GIADDR + CHADDR1 + CHADDR2 + CHADDR3 + CHADDR4 + CHADDR5 + Magiccookie + DHCPOptions1 + DHCPOptions2 + DHCPOptions3
+    # Constructing the request packet and sending it.
+    request_packet = ethernet / ip / udp / bootp / dhcp
+    print("(+) Sending DHCP request.")
+    sendp(request_packet)
 
-        return package
+    # -------------------------------- Wait For DHCP ack Packet -------------------------------- #
+    print("(*) Waiting for DHCP ACK...")
+    # Sniff only from DHCP server port.
+    ack_packet = sniff(count=1, filter="port 67")
+    print("(+) Got a DHCP ACK packet.")
 
-    print("Connecting to DHCP server...")
-
-    # Assign the DHCP server's address and port.
-    server_address_dhcp = (LOCAL_IP, DHCP_PORT)
-    # Create a TCP socket to connect to the DHCP.
-    dhcp_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    # Connect to the DHCP server.
-    dhcp_server.connect(server_address_dhcp)
-    # Send out a DHCP request to the server.
-    print("Send DHCP discovery.")
-    data = discover_get()
-    dhcp_server.send(data)
-    #dhcp_server.send(bytes("Please give me an IP", "utf-8"))
-    # Receive a DHCP answer from the server.
-    data = dhcp_server.recv(MAX_BYTES)
-    print("Receive DHCP offer.")
-    print("Send DHCP request.")
-    data = request_get();
-    dhcp_server.send(data)
-    data = dhcp_server.recv(MAX_BYTES)
-    print("Receive DHCP pack.\n")
-    print(data)
-    #answer = dhcp_server.recv(MAX_BYTES).decode("utf-8")
-    # Return the answer from the DHCP.
-    #print("DHCP: ", answer)
-    #return answer
+    # -------------------------------- Return The New Client IP -------------------------------- #
+    return client_ip
 
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Connect DNS <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< #
@@ -211,4 +207,4 @@ def createGUI():
 
 
 if __name__ == '__main__':
-    createGUI()
+    connectDHCP()

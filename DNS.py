@@ -2,7 +2,7 @@ import socket
 
 MAX_BYTES = 1024
 IP = '127.0.0.1'
-PORT = 1027
+PORT = 1028
 
 # List of domains and their IP address (All local)
 Domains = {
