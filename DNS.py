@@ -1,5 +1,6 @@
 import socket
 
+
 MAX_BYTES = 1024
 IP = '127.0.0.1'
 PORT = 53
@@ -23,7 +24,7 @@ if __name__ == '__main__':
     # Bind an ip and a port to the socket.
     try:
         server_socket.bind((IP, PORT))
-        print("(*) Binding was successful.")
+        print("(+) Binding was successful.")
     except socket.error as e:
         print("(-) Binding failed:", e)
         exit(1)
