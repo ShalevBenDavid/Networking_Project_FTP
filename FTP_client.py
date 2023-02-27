@@ -1,5 +1,6 @@
 from scapy.all import *
 from scapy.layers.dhcp import DHCP, BOOTP
+from scapy.layers.dns import DNS, DNSQR
 from scapy.layers.inet import UDP
 from scapy.layers.l2 import Ether
 from scapy.sendrecv import sendp, sniff
@@ -89,28 +90,34 @@ def connectDHCP():
 
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Connect DNS <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< #
-def connectDNS(gui_object, dns_ip):
+def connectDNS(gui_object, client_ip, dns_ip):
     print("(*) Connecting to DNS server...")
 
-    # Assign the DNS server's address and port.
-    server_address_dns = (dns_ip, DNS_PORT)
-    # Create a UDP socket to connect to the DNS.
-    client_socket_dns = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
     while True:
+        # -------------------------------- Create a DNS request packet -------------------------------- #
         # Receive a domain name from the user.
         domain_name = gui_object.getDomain()
-        # Send out a DNS query to the server.
-        client_socket_dns.sendto(domain_name.encode(), server_address_dns)
-        # Receive a DNS answer from the server.
-        answer, server_address = client_socket_dns.recvfrom(MAX_BYTES)
-        # Decode the answer in uft-8 formant.
-        answer = answer.decode("utf-8")
-        # Print and return the answer from the DNS.
-        print("DNS: ", answer)
-        if answer != "No matches":
+        print("(*) Creating DNS request packet.")
+        # Network layer
+        network_layer = IP(src=client_ip, dst=dns_ip)
+        # Transport layer
+        transport_layer = UDP(sport=DNS_PORT, dport=DNS_PORT)
+        # DNS layer
+        dns = DNS(id=0xABCD, rd=1, qd=DNSQR(qname=domain_name)) # Recursive request (rd=1).
+
+        # Constructing the request packet and sending it.
+        request = network_layer / transport_layer / dns
+        # -------------------------------- Send DNS Request -------------------------------- #
+        print("(+) Sending the DNS request.")
+        sendp(request)
+        # -------------------------------- Receive DNS Response -------------------------------- #
+        print("(+) Receiving the DNS response.")
+        answer = sniff(count=1, filter="udp and (port 53)")
+        # Print and return the answer from the DNS or repeat process if no valid IP was found.
+        if answer[0][2].rcode != 3:
             gui_object.enable_buttons()
-            return answer
+            print("DNS: ", answer[0][2].an.rdata)
+            return answer[0][2].an.rdata
         else:
             gui_object.clear_entry()
 
@@ -121,6 +128,3 @@ if __name__ == '__main__':
     gui = GUI(CLIENT_IP, DNS_IP)
     gui.createGUI()
     gui.runGUI()
-
-    # CLIENT_IP, DNS_IP = connectDHCP()
-    # connectDNS(CLIENT_IP, DNS_IP)

@@ -1,47 +1,51 @@
 import socket
 
+from scapy.layers.dns import DNSRR, DNS, DNSQR
+from scapy.layers.inet import IP, UDP
+from scapy.sendrecv import sniff, sendp
 
 MAX_BYTES = 1024
-IP = '127.0.0.1'
-PORT = 53
+DNS_IP = '127.0.0.1'
+DNS_PORT = 53
 
 # List of domains and their IP address (All local)
 Domains = {
     'ftplace.org': '192.168.2.1',
-    'google.com': '192.0.0.1',
-    'Outlook.net': '192.0.0.1',
+    'google.com': '192.168.2.2',
+    'Outlook.net': '192.168.2.3'
 }
 
 if __name__ == '__main__':
     print("(*) Starting DNS server...")
+    # -------------------------------- Waiting For DNS Request Packet -------------------------------- #
+    print("(*) Waiting for DNS request...")
+    request = sniff(count=1, filter="udp and (port 53)")
+    # Pull the client IP from the DNS request.
+    client_ip = request[0][0][0]
+    # Pull the domain request from the DNS request.
+    domain_name = request[0][2].qd.qname
 
-    # Create a UDP socket.
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    # Make the ports reusable.
-    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    # Make the socket handle broadcast IP addresses.
-    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-    # Bind an ip and a port to the socket.
-    try:
-        server_socket.bind((IP, PORT))
-        print("(+) Binding was successful.")
-    except socket.error as e:
-        print("(-) Binding failed:", e)
-        exit(1)
-    print("(*) Listening...")
-
-    # Keep listening.
-    while True:
-        # Receive a message from the client.
-        data, client_address = server_socket.recvfrom(MAX_BYTES)
-        # Extract the DNS request.
-        dns_request = data.decode().strip()
-        # If the DNS holds the answer then send the client the IP address.
-        if dns_request in Domains:
-            response = Domains[dns_request]
-            print("(+) DNS query was successful.")
-        else:
-            response = 'No matches'
-            print("(-) DNS query failed.")
-        # Send response to the client.
-        server_socket.sendto(response.encode(), client_address)
+    # -------------------------------- Create A DNS Response Packet -------------------------------- #
+    print("(*) Creating DNS response packet.")
+    # Network layer.
+    network_layer = IP(src=client_ip, dst=DNS_IP)
+    # Transport layer.
+    transport_layer = UDP(sport=DNS_PORT, dport=DNS_PORT)
+    # If the server has the answer.
+    if domain_name in Domains:
+        print("(+) DNS query was successful.")
+        # DNS response.
+        response = DNSRR(rrname=domain_name, type="A", rclass="IN", ttl=2000, rdata=Domains[domain_name])
+        # DNS layer.
+        dns = DNS(id=0xABCD, qr=1, aa=1, rd=0, qdcount=1, ancount=1, qd=DNSQR(qname=domain_name), an=response)
+        # Response packet (qr=1), authoritative response (aa=1), not recursive (rd=0),
+        # solo query (qdcount=1), solo response (ancount=1).
+    else:
+        print("(-) DNS query failed.")
+        # DNS layer.
+        dns = DNS(id=0xABCD, qr=1, aa=1, rd=0, qdcount=1, ancount=1, qd=DNSQR(qname=domain_name), rcode=3)
+        # Response packet (qr=1), authoritative response (aa=1), not recursive (rd=0),
+        # solo query (qdcount=1), solo response (ancount=1), domain wasn't found (rcode=3)
+    # -------------------------------- Send The DNS Response Packet -------------------------------- #
+    packet = network_layer / transport_layer / dns
+    sendp(packet)
