@@ -1,9 +1,6 @@
-import socket
 from random import randint
 from time import sleep
-
 from scapy.all import *
-
 from scapy.layers.dhcp import DHCP, BOOTP
 from scapy.layers.inet import UDP, IP
 from scapy.layers.l2 import Ether
@@ -56,7 +53,7 @@ def create_offer(server_ip, client_ip, broadcast_ip):
     # DHCP type message
     dhcp = DHCP()
     dhcp.options = [("message-type", "offer"), ('server_id', server_ip), ('subnet_mask', '255.255.255.0'),
-                    ('lease_time', 2000), "end"]
+                    ('lease_time', 2000), ('name_server', '127.0.0.1'), "end"]
 
     # Constructing the offer packet and sending it.
     offer = ethernet / ip / udp / bootp / dhcp
