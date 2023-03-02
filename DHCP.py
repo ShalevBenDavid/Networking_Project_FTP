@@ -53,7 +53,7 @@ def create_offer(server_ip, client_ip, broadcast_ip):
     # DHCP type message
     dhcp = DHCP()
     dhcp.options = [("message-type", "offer"), ('server_id', server_ip), ('subnet_mask', '255.255.255.0'),
-                    ('lease_time', 2000), ('name_server', '127.0.0.1'), "end"]
+                    ('lease_time', 2000), ('name_server', '192.168.4.4'), "end"]
 
     # Constructing the offer packet and sending it.
     offer = ethernet / ip / udp / bootp / dhcp
@@ -118,7 +118,7 @@ if __name__ == '__main__':
         print("(*) Waiting for DHCP request...")
         # Sniff only from DHCP client port.
         sniff(count=1, filter="udp and (port 68)")
-        print("(+) Got a DHCP request packet.")
+        print("(+) Got a DHCP request packet.\n")
         # -------------------------------- Send DHCP ACK Packet -------------------------------- #
         create_ack(SERVER_IP, CLIENT_IP, BROADCAST_IP)
         # Delete the broadcast IP since it is no longer in use.

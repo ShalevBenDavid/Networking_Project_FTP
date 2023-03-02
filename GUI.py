@@ -55,7 +55,7 @@ class GUI:
 
         # ---------------------------------- GUI BUTTONS ----------------------------------#
         # Checks if the domain is correct via 'ok' button or 'ENTER' key.
-        self.okButton = customtkinter.CTkButton(master=frame, text="OK", command=self.callConnectDNS)
+        self.okButton = customtkinter.CTkButton(master=frame, text="OK", command=self.connectDomain)
         self.okButton.pack(pady=12, padx=10)
         self.root.bind('<Return>', lambda event: self.okButton.invoke())
 
@@ -82,9 +82,10 @@ class GUI:
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> GUI Methods <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< #
 
     # Function that calls connectDNS().
-    def callConnectDNS(self):
-        print(self.dns_ip)
+    def connectDomain(self):
+        from FTP_client import connectToServerRUDP
         self.domain_ip = connectDNS(self, self.client_ip, self.dns_ip)
+        connectToServerRUDP(self, self.domain_ip, self.client_ip)
 
     # Clear the entry text field.
     def clear_entry(self):
