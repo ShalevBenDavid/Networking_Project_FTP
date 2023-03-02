@@ -9,7 +9,8 @@ from DHCP import IP
 MAX_BYTES = 1024
 DHCP_CLIENT_PORT = 68
 DHCP_SERVER_PORT = 67
-DNS_PORT = 53
+DNS_CLIENT_PORT = 1024
+DNS_SERVER_PORT = 53
 LOCAL_IP = '127.0.0.1'
 
 
@@ -97,33 +98,39 @@ def connectDNS(gui_object, client_ip, dns_ip):
         # -------------------------------- Create a DNS request packet -------------------------------- #
         # Receive a domain name from the user.
         domain_name = gui_object.getDomain()
+        print(domain_name)
         print("(*) Creating DNS request packet.")
         # Network layer
         network_layer = IP(src=client_ip, dst=dns_ip)
         # Transport layer
-        transport_layer = UDP(sport=DNS_PORT, dport=DNS_PORT)
+        transport_layer = UDP(sport=DNS_CLIENT_PORT, dport=DNS_SERVER_PORT)
         # DNS layer
-        dns = DNS(id=0xABCD, rd=1, qd=DNSQR(qname=domain_name)) # Recursive request (rd=1).
+        dns = DNS(id=0xABCD, rd=1, qd=DNSQR(qname=domain_name))  # Recursive request (rd=1).
 
         # Constructing the request packet and sending it.
         request = network_layer / transport_layer / dns
         # -------------------------------- Send DNS Request -------------------------------- #
         print("(+) Sending the DNS request.")
-        sendp(request)
+
+        send(request)
+
         # -------------------------------- Receive DNS Response -------------------------------- #
-        print("(+) Receiving the DNS response.")
-        answer = sniff(count=1, filter="udp and (port 53)")
+        print("(+) Receiving the DNS response...")
+        answer = sniff(count=1, filter="udp and (port 1024)")
         # Print and return the answer from the DNS or repeat process if no valid IP was found.
-        if answer[0][2].rcode != 3:
+        print(answer[0][3].rcode)
+        if answer[0][3].rcode != 3:
             gui_object.enable_buttons()
-            print("DNS: ", answer[0][2].an.rdata)
-            return answer[0][2].an.rdata
+            print("DNS: ", answer[0][3].an.rdata)
+            return answer[0][3].an.rdata
         else:
             gui_object.clear_entry()
+            return
 
 
 if __name__ == '__main__':
     from GUI import GUI
+
     CLIENT_IP, DNS_IP = connectDHCP()
     gui = GUI(CLIENT_IP, DNS_IP)
     gui.createGUI()

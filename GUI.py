@@ -83,6 +83,7 @@ class GUI:
 
     # Function that calls connectDNS().
     def callConnectDNS(self):
+        print(self.dns_ip)
         self.domain_ip = connectDNS(self, self.client_ip, self.dns_ip)
 
     # Clear the entry text field.
