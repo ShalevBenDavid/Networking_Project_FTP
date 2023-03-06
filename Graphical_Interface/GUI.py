@@ -3,12 +3,12 @@ from tkinter import NORMAL, DISABLED, filedialog
 
 import customtkinter
 
-from FTP_client import *
-import Download
+from Application.FTP_client import *
 
 
 class GUI:
     def __init__(self, client_ip, dns_ip):
+        self.radio = None
         self.tcpRadio = None
         self.rudpRadio = None
         self.okButton = None
@@ -22,7 +22,7 @@ class GUI:
 
     def createGUI(self):
         # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Create GUI <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< #
-        # Define thw window appearance.
+        # Define the window appearance.
         customtkinter.set_appearance_mode("dark")
         customtkinter.set_default_color_theme("dark-blue")
         self.root = customtkinter.CTk()
@@ -32,15 +32,6 @@ class GUI:
         # Define the frame.
         frame = customtkinter.CTkFrame(master=self.root)
         frame.pack(pady=20, padx=60, fill="both", expand=True)
-
-        # Uploads file from the file explorer.
-        def upload_win():
-            domain = self.getDomain()
-            file_path = filedialog.askopenfilename()
-
-            # directory = "Server/" + domain
-            # new_file_path = os.path.join(directory, os.path.basename(file_path))
-            # shutil.copy(file_path, new_file_path)
 
         # ---------------------------------- GUI LABELS ----------------------------------#
 
@@ -60,32 +51,50 @@ class GUI:
         self.root.bind('<Return>', lambda event: self.okButton.invoke())
 
         # Opens a new window for downloading files.
-        self.downloadButton = customtkinter.CTkButton(master=frame, text="Download", command=Download.download_win,
-                                                      state=DISABLED)
+        self.downloadButton = customtkinter.CTkButton(master=frame, text="Download", command=self.download_win
+                                                      , state=DISABLED)
         self.downloadButton.pack(pady=12, padx=10)
 
         # Opens a new window for uploading files.
-        self.uploadButton = customtkinter.CTkButton(master=frame, text="Upload", command=upload_win, state=DISABLED)
+        self.uploadButton = customtkinter.CTkButton(master=frame, text="Upload", command=self.upload_win,
+                                                    state=DISABLED)
         self.uploadButton.pack()
 
         # ---------------------------------- GUI RADIO BUTTONS ----------------------------------#
-        radio = tkinter.IntVar(value=1)
+        self.radio = tkinter.IntVar(value=2)
 
         # RUDP radio button.
-        self.rudpRadio = customtkinter.CTkRadioButton(frame, text="RUDP", variable=radio, value=2)
+        self.rudpRadio = customtkinter.CTkRadioButton(frame, text="RUDP", variable=self.radio, value=2)
         self.rudpRadio.pack(side="bottom")
 
         # TCP radio button.
-        self.tcpRadio = customtkinter.CTkRadioButton(frame, text="TCP", variable=radio, value=1)
+        self.tcpRadio = customtkinter.CTkRadioButton(frame, text="TCP", variable=self.radio, value=1)
         self.tcpRadio.pack(side="bottom")
 
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> GUI Methods <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< #
 
     # Function that calls connectDNS().
     def connectDomain(self):
-        from FTP_client import connectToServerRUDP
         self.domain_ip = connectDNS(self, self.client_ip, self.dns_ip)
-        connectToServerRUDP(self, self.domain_ip, self.client_ip)
+
+    def download_win(self):
+        from Download import Download
+
+        download_window = Download(self.getDomain())
+        download_window.create_download_win()
+        download_window.runDownloadWindow()
+
+    # Uploads file from the file explorer.
+    def upload_win(self):
+        file_path = filedialog.askopenfilename()
+        # Checking which radio button is selected (RUDP / TCP ).
+        if self.radio.get() == 2:
+            # Create a UDP socket and set the timeout value.
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.settimeout(TIMEOUT)
+
+            # Close the socket.
+            sock.close()
 
     # Clear the entry text field.
     def clear_entry(self):

@@ -1,18 +1,24 @@
+from time import sleep
+
 from scapy.all import *
 from scapy.layers.dhcp import DHCP, BOOTP
 from scapy.layers.dns import DNS, DNSQR
 from scapy.layers.inet import UDP
 from scapy.layers.l2 import Ether
 from scapy.sendrecv import sendp, sniff
-from DHCP import IP
+from Servers.DHCP import IP
+
 
 MAX_BYTES = 1024
 DHCP_CLIENT_PORT = 68
 DHCP_SERVER_PORT = 67
 DNS_CLIENT_PORT = 1024
 DNS_SERVER_PORT = 53
-CLIENT_PORT = 78120
-SERVER_PORT = 41330
+CLIENT_PORT = 20781
+SERVER_PORT = 30413
+PACKET_SIZE = 1024
+WINDOW_SIZE = 5
+TIMEOUT = 2
 LOCAL_IP = '127.0.0.1'
 
 
@@ -41,7 +47,7 @@ def connectDHCP():
 
     # Constructing the Discover packet and sending it.
     discover_packet = ethernet / ip / udp / bootp / dhcp
-    print("(+) Sending DHCP discover.")
+    print("(*) Sending DHCP discover...")
     sendp(discover_packet)
 
     # -------------------------------- Wait For DHCP Offer Packet -------------------------------- #
@@ -79,13 +85,14 @@ def connectDHCP():
 
     # Constructing the request packet and sending it.
     request_packet = ethernet / ip / udp / bootp / dhcp
+    sleep(0.2)
     sendp(request_packet)
     print("(+) Sent DHCP request.")
 
     # -------------------------------- Wait For DHCP ack Packet -------------------------------- #
     print("(*) Waiting for DHCP ACK...")
     # Sniff only from DHCP server port.
-    sniff(count=1, filter="port 67")
+    sniff(count=1, filter="udp and port 67")
     print("(+) Got a DHCP ACK packet.")
 
     # -------------------------------- Return The New Client IP -------------------------------- #
@@ -121,29 +128,20 @@ def connectDNS(gui_object, client_ip, dns_ip):
     if answer[0][3].rcode != 3:
         gui_object.enable_buttons()
         print("(+) DNS answer: ", answer[0][3].an.rdata)
+
+        #########################################################
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        server_address = ('localhost', SERVER_PORT)
+        sock.sendto(domain_name.encode(), server_address)
+        ##########################################################
         return answer[0][3].an.rdata
     else:
         print("(-) DNS failed. Try again.")
         gui_object.clear_entry()
 
-    def connectToServerRUDP(gui_object, domain_ip, client_ip):
-
-        # Assign the server's address and port.
-        server_address = (domain_ip, SERVER_PORT)
-        # Create a UDP socket to connect to the server.
-        client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
-        while True:
-            # Send out a message to the server.
-            client_socket.sendto("hello".encode(), server_address)
-            # Receive a DNS answer from the server.
-            answer, server_address = client_socket.recvfrom(MAX_BYTES)
-            # Decode the answer in uft-8 formant.
-            answer = answer.decode("utf-8")
-
 
 if __name__ == '__main__':
-    from GUI import GUI
+    from Graphical_Interface.GUI import GUI
 
     CLIENT_IP, DNS_IP = connectDHCP()
     gui = GUI(CLIENT_IP, DNS_IP)

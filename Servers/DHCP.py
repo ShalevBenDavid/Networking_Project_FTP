@@ -120,6 +120,7 @@ if __name__ == '__main__':
         sniff(count=1, filter="udp and (port 68)")
         print("(+) Got a DHCP request packet.\n")
         # -------------------------------- Send DHCP ACK Packet -------------------------------- #
+        sleep(0.2)
         create_ack(SERVER_IP, CLIENT_IP, BROADCAST_IP)
         # Delete the broadcast IP since it is no longer in use.
         IP_LIST.remove(BROADCAST_IP)
