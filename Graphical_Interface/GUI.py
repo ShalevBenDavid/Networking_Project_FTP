@@ -1,9 +1,8 @@
 import tkinter
 from tkinter import NORMAL, DISABLED, filedialog
-
 import customtkinter
-
 from Application.FTP_client import *
+from Application.FTP_server import *
 
 
 class GUI:
@@ -28,6 +27,7 @@ class GUI:
         self.root = customtkinter.CTk()
         self.root.title("FTPlace")
         self.root.geometry("500x500")
+        # self.root.protocol("WM_DELETE_WINDOW", closeSocket())
 
         # Define the frame.
         frame = customtkinter.CTkFrame(master=self.root)
@@ -89,12 +89,7 @@ class GUI:
         file_path = filedialog.askopenfilename()
         # Checking which radio button is selected (RUDP / TCP ).
         if self.radio.get() == 2:
-            # Create a UDP socket and set the timeout value.
-            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            sock.settimeout(TIMEOUT)
-
-            # Close the socket.
-            sock.close()
+            uploadToServer()
 
     # Clear the entry text field.
     def clear_entry(self):

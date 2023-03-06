@@ -8,7 +8,6 @@ from scapy.layers.l2 import Ether
 from scapy.sendrecv import sendp, sniff
 from Servers.DHCP import IP
 
-
 MAX_BYTES = 1024
 DHCP_CLIENT_PORT = 68
 DHCP_SERVER_PORT = 67
@@ -20,6 +19,22 @@ PACKET_SIZE = 1024
 WINDOW_SIZE = 5
 TIMEOUT = 2
 LOCAL_IP = '127.0.0.1'
+
+# ---------------------------------- CREATE CLIENT SOCKET ----------------------------------#
+client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+# Make the ports reusable.
+client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+# Set timeout for the socket.
+# client_socket.settimeout(TIMEOUT)
+# Creating a tuple to represent the server.
+server_address = ('localhost', SERVER_PORT)
+# Binding address and port to the socket.
+try:
+    client_socket.bind((LOCAL_IP, CLIENT_PORT))
+    print("(+) Binding was successful.")
+except socket.error as e:
+    print("(-) Binding failed:", e)
+    exit(1)
 
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Connect DHCP <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< #
@@ -128,16 +143,31 @@ def connectDNS(gui_object, client_ip, dns_ip):
     if answer[0][3].rcode != 3:
         gui_object.enable_buttons()
         print("(+) DNS answer: ", answer[0][3].an.rdata)
-
-        #########################################################
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        server_address = ('localhost', SERVER_PORT)
         sock.sendto(domain_name.encode(), server_address)
-        ##########################################################
         return answer[0][3].an.rdata
     else:
         print("(-) DNS failed. Try again.")
         gui_object.clear_entry()
+
+
+def uploadToServer():
+    client_socket.sendto("upload".encode(), server_address)
+    # Receiving SYN-ACK message from server.
+    client_socket.recvfrom(PACKET_SIZE)
+    print("(+) Received SYN-ACK message.")
+    client_socket.sendto("ACK".encode(), server_address)
+    print("(+) Sent ACK message.")
+
+    # Close the socket.
+    client_socket.close()
+
+
+def downloadFromServer():
+    client_socket.sendto("download".encode(), server_address)
+
+    # Close the socket.
+    client_socket.close()
 
 
 if __name__ == '__main__':
