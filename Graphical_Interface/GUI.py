@@ -3,6 +3,7 @@ from tkinter import NORMAL, DISABLED, filedialog
 import customtkinter
 from Application.FTP_client import *
 from Application.FTP_server import *
+from Graphical_Interface.Download import Download
 
 
 class GUI:
@@ -27,7 +28,8 @@ class GUI:
         self.root = customtkinter.CTk()
         self.root.title("FTPlace")
         self.root.geometry("500x500")
-        # self.root.protocol("WM_DELETE_WINDOW", closeSocket())
+        # Remember to delete later.
+        self.root.geometry("+1920+0")
 
         # Define the frame.
         frame = customtkinter.CTkFrame(master=self.root)
@@ -46,7 +48,7 @@ class GUI:
 
         # ---------------------------------- GUI BUTTONS ----------------------------------#
         # Checks if the domain is correct via 'ok' button or 'ENTER' key.
-        self.okButton = customtkinter.CTkButton(master=frame, text="OK", command=self.connectDomain)
+        self.okButton = customtkinter.CTkButton(master=frame, text="OK", command=self.connectDomain, state=DISABLED)
         self.okButton.pack(pady=12, padx=10)
         self.root.bind('<Return>', lambda event: self.okButton.invoke())
 
@@ -61,25 +63,29 @@ class GUI:
         self.uploadButton.pack()
 
         # ---------------------------------- GUI RADIO BUTTONS ----------------------------------#
-        self.radio = tkinter.IntVar(value=2)
+        self.radio = tkinter.IntVar()
 
         # RUDP radio button.
-        self.rudpRadio = customtkinter.CTkRadioButton(frame, text="RUDP", variable=self.radio, value=2)
+        self.rudpRadio = customtkinter.CTkRadioButton(frame, text="RUDP", variable=self.radio, value=2,
+                                                      command=self.chooseRUDP)
         self.rudpRadio.pack(side="bottom")
 
         # TCP radio button.
-        self.tcpRadio = customtkinter.CTkRadioButton(frame, text="TCP", variable=self.radio, value=1)
+        self.tcpRadio = customtkinter.CTkRadioButton(frame, text="TCP", variable=self.radio, value=1,
+                                                     command=self.chooseTCP)
         self.tcpRadio.pack(side="bottom")
 
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> GUI Methods <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< #
 
     # Function that calls connectDNS().
     def connectDomain(self):
-        self.domain_ip = connectDNS(self, self.client_ip, self.dns_ip)
+        if self.radio.get() == 1:
+            self.domain_ip = connectDNS(self, self.client_ip, self.dns_ip, "TCP")
+        else:
+            self.domain_ip = connectDNS(self, self.client_ip, self.dns_ip, "RUDP")
 
+    # Downloads file from the server.
     def download_win(self):
-        from Download import Download
-
         download_window = Download(self.getDomain())
         download_window.create_download_win()
         download_window.runDownloadWindow()
@@ -89,7 +95,19 @@ class GUI:
         file_path = filedialog.askopenfilename()
         # Checking which radio button is selected (RUDP / TCP ).
         if self.radio.get() == 2:
-            uploadToServer()
+            uploadToServerRUDP()
+
+    # Choose RUDP as the communication protocol.
+    def chooseRUDP(self):
+        self.okButton.configure(True, state=NORMAL)
+        self.tcpRadio.pack_forget()
+        sendCommunicationType("RUDP")
+
+    # Choose TCP as the communication protocol.
+    def chooseTCP(self):
+        self.okButton.configure(True, state=NORMAL)
+        self.rudpRadio.pack_forget()
+        sendCommunicationType("TCP")
 
     # Clear the entry text field.
     def clear_entry(self):
@@ -99,6 +117,11 @@ class GUI:
     def enable_buttons(self):
         self.downloadButton.configure(True, state=NORMAL)
         self.uploadButton.configure(True, state=NORMAL)
+
+    # Disable the download/upload button's usage.
+    def disable_buttons(self):
+        self.downloadButton.configure(True, state=DISABLED)
+        self.uploadButton.configure(True, state=DISABLED)
 
     # Returns the domain the user entered.
     def getDomain(self):

@@ -98,6 +98,7 @@ if __name__ == '__main__':
     IP_LIST = []
     # Generate IP for server.
     SERVER_IP = generate_random_ip(IP_LIST)
+
     print("(+) Server IP: ", SERVER_IP)
     # Keep accepting clients.
     while True:
@@ -120,7 +121,7 @@ if __name__ == '__main__':
         sniff(count=1, filter="udp and (port 68)")
         print("(+) Got a DHCP request packet.\n")
         # -------------------------------- Send DHCP ACK Packet -------------------------------- #
-        sleep(0.2)
+        sleep(0.3)
         create_ack(SERVER_IP, CLIENT_IP, BROADCAST_IP)
         # Delete the broadcast IP since it is no longer in use.
         IP_LIST.remove(BROADCAST_IP)

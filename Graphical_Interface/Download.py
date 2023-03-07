@@ -8,6 +8,7 @@ import customtkinter
 class Download:
 
     def __init__(self, domain):
+        self.downloadNowBtn = None
         self.root = None
         self.listbox = None
         self.domain = domain
@@ -30,12 +31,12 @@ class Download:
         self.listbox.pack(pady=120, padx=10)
 
         # Creating the download button.
-        downloadNowBtn = customtkinter.CTkButton(master=frame, text="Download Now", command=self.downloadNow
-                                                 , state=NORMAL, bg_color="green", fg_color="green")
-        downloadNowBtn.pack(side="bottom")
-
+        self.downloadNowBtn = customtkinter.CTkButton(master=frame, text="Download Now", command=self.downloadNow
+                                                      , state=NORMAL, bg_color="green", fg_color="green",
+                                                      hover_color="green")
+        self.downloadNowBtn.pack(side="bottom")
         # Get the list of files in the directory.
-        directory = "Domains/" + self.domain
+        directory = "../Domains/" + self.domain
         file_list = os.listdir(directory)
 
         # Create a list to hold all the file names.

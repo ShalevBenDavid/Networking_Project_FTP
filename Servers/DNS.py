@@ -5,6 +5,7 @@ from scapy.layers.inet import IP, UDP
 from scapy.layers.l2 import Ether
 from scapy.sendrecv import sniff, sendp, send
 from scapy.all import *
+import getmac
 
 MAX_BYTES = 1024
 DNS_IP = '192.168.4.4'
