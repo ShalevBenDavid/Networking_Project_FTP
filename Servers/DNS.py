@@ -1,13 +1,9 @@
-import socket
-
+from scapy.all import *
 from scapy.layers.dns import DNSRR, DNS, DNSQR
 from scapy.layers.inet import IP, UDP
-from scapy.layers.l2 import Ether
-from scapy.sendrecv import sniff, sendp, send
-from scapy.all import *
-import getmac
+from scapy.sendrecv import sniff, send
 
-MAX_BYTES = 1024
+MAX_BYTES = 4096
 DNS_IP = '192.168.4.4'
 CLIENT_PORT = 1024
 DNS_PORT = 53

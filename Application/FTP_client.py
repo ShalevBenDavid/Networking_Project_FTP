@@ -1,15 +1,13 @@
 from time import sleep
 
-from getmac import getmac
 from scapy.all import *
 from scapy.layers.dhcp import DHCP, BOOTP
 from scapy.layers.dns import DNS, DNSQR
-from scapy.layers.inet import UDP, TCP
+from scapy.layers.inet import UDP, IP
 from scapy.layers.l2 import Ether
 from scapy.sendrecv import sendp, sniff
-from Servers.DHCP import IP
 
-MAX_BYTES = 1024
+MAX_BYTES = 4096
 DHCP_CLIENT_PORT = 68
 DHCP_SERVER_PORT = 67
 DNS_CLIENT_PORT = 1024
@@ -103,6 +101,7 @@ def connectDHCP():
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Connect DNS <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< #
 def connectDNS(gui_object, client_ip, dns_ip, protocol):
+    print("\n*********************************")
     print("(*) Connecting to DNS server...")
 
     # -------------------------------- Create a DNS request packet -------------------------------- #
@@ -135,9 +134,8 @@ def connectDNS(gui_object, client_ip, dns_ip, protocol):
             # Make the ports reusable.
             client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             # Send the chosen protocol to the server.
-            ########################################################################################################
             client_socket.sendto(domain_name.encode(), SERVER_ADDRESS)
-            ########################################################################################################
+            print("(+) Sent the server the domain.")
             # Close the socket.
             client_socket.close()
         elif protocol == "TCP":
@@ -158,7 +156,7 @@ def connectDNS(gui_object, client_ip, dns_ip, protocol):
         gui_object.disable_buttons()
 
 
-def uploadToServerRUDP():
+def uploadToServerRUDP(file_path):
     # ---------------------------------- CREATE CLIENT SOCKET ----------------------------------#
     print("\n*********************************")
     print("(*) Creating the client socket...")
@@ -173,17 +171,17 @@ def uploadToServerRUDP():
         print("(-) Binding failed:", e)
         exit(1)
     client_socket.sendto("upload".encode(), SERVER_ADDRESS)
+    print("(+) Notified the server we want to upload.")
     # Receiving SYN-ACK message from server.
     client_socket.recvfrom(PACKET_SIZE)
     print("(+) Received SYN-ACK message.")
     client_socket.sendto("ACK".encode(), SERVER_ADDRESS)
     print("(+) Sent ACK message.")
-
     # Close the socket.
     client_socket.close()
 
 
-def downloadFromServerRUDP():
+def downloadFromServerRUDP(file_name, save_path):
     # ---------------------------------- CREATE CLIENT SOCKET ----------------------------------#
     print("\n*********************************")
     print("(*) Creating the client socket...")
@@ -197,14 +195,114 @@ def downloadFromServerRUDP():
     except socket.error as e:
         print("(-) Binding failed:", e)
         exit(1)
-    print("***********************")
-    client_socket.sendto("download".encode(), SERVER_ADDRESS)
-
+    client_socket.sendall("download".encode())
+    print("(+) Notified the server we want to download.")
+    sleep(0.2)
     # Close the socket.
     client_socket.close()
 
 
+def uploadToServerTCP(file_path):
+    # ---------------------------------- CREATE CLIENT SOCKET ----------------------------------#
+    print("\n*********************************")
+    print("(*) Creating the client socket...")
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # Make the ports reusable.
+    client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    # Binding address and port to the socket.
+    try:
+        client_socket.bind((LOCAL_IP, CLIENT_PORT))
+        print("(+) Binding was successful.")
+    except socket.error as e:
+        print("(-) Binding failed:", e)
+        exit(1)
+    # Connect to the server.
+    client_socket.connect(SERVER_ADDRESS)
+    client_socket.send("upload".encode())
+    print("(+) Notified the server we want to upload.")
+    sleep(0.2)
+    # ---------------------------------- SEND THE FILE TO THE SERVER ----------------------------------#
+    # Get the file size.
+    file_size = os.path.getsize(file_path)
+    # Send the file's size.
+    client_socket.sendall(str(file_size).encode())
+    print("(+) Sent the file's size to the server.")
+    sleep(0.2)
+    # Get the file name.
+    file_name = os.path.basename(file_path)
+    # Send the file's name.
+    client_socket.sendall(file_name.encode())
+    print("(+) Sent the file's name to the server.")
+    # Open and send the file to the server.
+    with open(file_path, "rb") as file:
+        seq_num = 0
+        total_packets_to_send = file_size // MAX_BYTES
+        print("(*) Sending the file...")
+        while True:
+            # Read the file's bytes in chunks.
+            bytes_to_send = file.read(MAX_BYTES)
+            # If we are done with sending the file.
+            if not bytes_to_send:
+                print("(+) Done with sending file.")
+                break
+            # Sending the file in chunks.
+            client_socket.sendall(bytes_to_send)
+            print("Sent:", seq_num, "/", total_packets_to_send)
+            seq_num += 1
+    # Close the byte-stream.
+    file.close()
+    # Close the socket.
+    client_socket.shutdown(socket.SHUT_WR)
+    client_socket.close()
+    print("closed")
+
+
+def downloadFromServerTCP(file_name, save_path):
+    # ---------------------------------- CREATE CLIENT SOCKET ----------------------------------#
+    print("\n*********************************")
+    print("(*) Creating the client socket...")
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # Make the ports reusable.
+    client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    # Binding address and port to the socket.
+    try:
+        client_socket.bind((LOCAL_IP, CLIENT_PORT))
+        print("(+) Binding was successful.")
+    except socket.error as e:
+        print("(-) Binding failed:", e)
+        exit(1)
+    # Connect to the server.
+    client_socket.connect(SERVER_ADDRESS)
+    client_socket.sendall("download".encode())
+    print("(+) Notified the server we want to download.")
+    sleep(0.2)
+    # ---------------------------------- RECEIVE THE FILE FROM THE SERVER ----------------------------------#
+    client_socket.sendall(file_name.encode())
+    print("(+) Sent request to download:", file_name)
+    # Create the file directory (where we want to download the file).
+    file_directory = save_path + "/" + file_name
+    with open(file_directory, "wb") as file:
+        print("(*) Downloading the file...")
+        while True:
+            # Read the file's bytes in chunks.
+            bytes_to_write = client_socket.recv(MAX_BYTES)
+            # If we are done with sending the file.
+            if not bytes_to_write:
+                print("(+) Done with downloading file.")
+                break
+            # Write to the file the bytes we just received
+            file.write(bytes_to_write)
+    # Close the byte-stream.
+    file.close()
+    # Close the socket.
+    client_socket.shutdown(socket.SHUT_WR)
+    client_socket.close()
+    print("closed")
+
+
 def sendCommunicationType(protocol):
+    print("\n*********************************")
+    # Create UDP socket.
     protocol_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     # Make the ports reusable.
     protocol_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -215,15 +313,16 @@ def sendCommunicationType(protocol):
     except socket.error as e:
         print("(-) Binding failed:", e)
         exit(1)
-    print("***********************")
+    # Sending the server which protocol we choose.
     protocol_socket.sendto(protocol.encode(), SERVER_ADDRESS)
+    print("(+) Sent the", protocol, "communication protocol to the server.")
     # Close the socket.
     protocol_socket.close()
+    print("closed")
 
 
 if __name__ == '__main__':
     from Graphical_Interface.GUI import GUI
-
     CLIENT_IP, DNS_IP = connectDHCP()
     gui = GUI(CLIENT_IP, DNS_IP)
     gui.createGUI()

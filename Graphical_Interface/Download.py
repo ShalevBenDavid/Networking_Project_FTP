@@ -1,8 +1,8 @@
 import os
 import tkinter
-from tkinter import DISABLED, NORMAL, messagebox
-
+from tkinter import DISABLED, NORMAL, messagebox, filedialog
 import customtkinter
+from Application.FTP_client import *
 
 
 class Download:
@@ -11,14 +11,19 @@ class Download:
         self.downloadNowBtn = None
         self.root = None
         self.listbox = None
+        self.sortedlist = None
+        self.protocol = None
         self.domain = domain
 
-    def create_download_win(self):
+    def create_download_win(self, protocol):
         # Define the window appearance.
         self.root = customtkinter.CTk()
         self.root.title(self.domain)
         self.root.geometry("500x400")
         self.root.winfo_toplevel()
+
+        # Define the protocol the user chose.
+        self.protocol = protocol
 
         # Define the frame.
         frame = customtkinter.CTkFrame(master=self.root)
@@ -29,33 +34,42 @@ class Download:
         self.listbox = tkinter.Listbox(master=self.root, width=90, height=150, selectmode="SINGLE",
                                        bg="black", fg="white")
         self.listbox.pack(pady=120, padx=10)
-
-        # Creating the download button.
-        self.downloadNowBtn = customtkinter.CTkButton(master=frame, text="Download Now", command=self.downloadNow
-                                                      , state=NORMAL, bg_color="green", fg_color="green",
-                                                      hover_color="green")
-        self.downloadNowBtn.pack(side="bottom")
         # Get the list of files in the directory.
         directory = "../Domains/" + self.domain
         file_list = os.listdir(directory)
-
         # Create a list to hold all the file names.
-        sortedlist = []
+        self.sortedlist = []
         for file_name in file_list:
-            sortedlist.append(file_name)
-        sortedlist.sort()
+            self.sortedlist.append(file_name)
+        self.sortedlist.sort()
         # Loop through the list and add each file name to the Listbox.
-        for file in sortedlist:
+        for file in self.sortedlist:
             self.listbox.insert(tkinter.END, file)
+
+        # Creating the download button.
+        self.downloadNowBtn = customtkinter.CTkButton(master=frame, text="Download Now", command=self.downloadNow,
+                                                      state=NORMAL, bg_color="green", fg_color="green",
+                                                      hover_color="green")
+        self.downloadNowBtn.pack(side="bottom")
 
     def runDownloadWindow(self):
         self.root.mainloop()
 
+    # Occurs when clicking on the download now button.
     def downloadNow(self):
         # Handle selected file.
         index = self.listbox.curselection()
         if not index:
             self.error_message()
+        else:
+            # Ask the user where to download the file.
+            save_path = filedialog.askdirectory()
+            # Save the requested file's name.
+            file_name = self.sortedlist[index[0]]
+            if self.protocol == 1:
+                downloadFromServerTCP(file_name, save_path)
+            if self.protocol == 2:
+                downloadFromServerRUDP(file_name, save_path)
 
     # Define a function to display a pop-up message if bo file selected.
     def error_message(self):

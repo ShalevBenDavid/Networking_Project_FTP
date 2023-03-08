@@ -87,15 +87,21 @@ class GUI:
     # Downloads file from the server.
     def download_win(self):
         download_window = Download(self.getDomain())
-        download_window.create_download_win()
+        download_window.create_download_win(self.radio.get())
         download_window.runDownloadWindow()
 
     # Uploads file from the file explorer.
     def upload_win(self):
         file_path = filedialog.askopenfilename()
+        # Checking If he chose nothing.
+        if not file_path:
+            pass
         # Checking which radio button is selected (RUDP / TCP ).
-        if self.radio.get() == 2:
-            uploadToServerRUDP()
+        else:
+            if self.radio.get() == 1:
+                uploadToServerTCP(file_path)
+            if self.radio.get() == 2:
+                uploadToServerRUDP(file_path)
 
     # Choose RUDP as the communication protocol.
     def chooseRUDP(self):

@@ -5,7 +5,7 @@ from scapy.layers.dhcp import DHCP, BOOTP
 from scapy.layers.inet import UDP, IP
 from scapy.layers.l2 import Ether
 
-MAX_BYTES = 1024
+MAX_BYTES = 4096
 DHCP_CLIENT_PORT = 68
 DHCP_SERVER_PORT = 67
 
