@@ -1,4 +1,9 @@
+import _thread
+import pickle
+import socket
+import threading
 from time import sleep
+from tkinter.tix import MAX
 
 from scapy.all import *
 from scapy.layers.dhcp import DHCP, BOOTP
@@ -15,11 +20,13 @@ DNS_SERVER_PORT = 53
 CLIENT_PORT = 20781
 SERVER_PORT = 30413
 PACKET_SIZE = 1024
-WINDOW_SIZE = 5
+WINDOW_SIZE = 4
 TIMEOUT = 2
 CC_RENO = b"reno"
 LOCAL_IP = '127.0.0.1'
 SERVER_ADDRESS = ('localhost', SERVER_PORT)  # A tuple to represent the server.
+lock = threading.Lock()
+window_start = 0  # Starting index for the window.
 
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Connect DHCP <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< #
@@ -137,13 +144,15 @@ def connectDNS(gui_object, client_ip, dns_ip):
         gui_object.disable_buttons()
 
 
-def uploadToServerRUDP(file_path):
+def uploadToServerRUDP(gui_object, file_path):
     # ---------------------------------- CREATE CLIENT SOCKET ----------------------------------#
     print("\n*********************************")
     print("(*) Creating the client socket...")
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     # Make the ports reusable.
     client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    # Setting timeout for the socket.
+    client_socket.settimeout(TIMEOUT)
     # Binding address and port to the socket.
     try:
         client_socket.bind((LOCAL_IP, CLIENT_PORT))
@@ -151,13 +160,72 @@ def uploadToServerRUDP(file_path):
     except socket.error as e:
         print("(-) Binding failed:", e)
         exit(1)
+    # ---------------------------------- 3 WAY HAND SHAKE ----------------------------------#
     client_socket.sendto("upload".encode(), SERVER_ADDRESS)
     print("(+) Notified the server we want to upload.")
-    # Receiving SYN-ACK message from server.
-    client_socket.recvfrom(PACKET_SIZE)
-    print("(+) Received SYN-ACK message.")
+    try:
+        # Receiving SYN-ACK message from server.
+        msg = receiveMessage(client_socket)
+        if msg.decode() == "SYN-ACK":
+            print("(+) Received SYN-ACK message.")
+    except socket.error as e:
+        print("(-) Timeout occurred")
+        # Close the socket.
+        client_socket.close()
+        return
     client_socket.sendto("ACK".encode(), SERVER_ADDRESS)
     print("(+) Sent ACK message.")
+
+    # ---------------------------------- SEND THE FILE TO THE SERVER ----------------------------------#
+    # Initializing variables to track reliability.
+    seq_num = 0  # Current seq number.
+    next_seq = 0  # Next packet to send.
+    chunks = []  # List that holds all the file's chunks.
+    index_buffer = []  # Holds the index packet to be sent.
+
+    # Get the file size.
+    file_size = os.path.getsize(file_path)
+    # Send the file's size.
+    client_socket.sendto(str(file_size).encode(), SERVER_ADDRESS)
+    print("(+) Sent the file's size to the server.")
+    sleep(0.2)
+    # Get the file name.
+    file_name = os.path.basename(file_path)
+    # Send the file's name.
+    client_socket.sendto(file_name.encode(), SERVER_ADDRESS)
+    print("(+) Sent the file's name to the server.")
+    # ---------------------------------- READING THE FILE ----------------------------------#
+    print("(*) Reading the file...")
+    with open(file_path, "rb") as file:
+        while True:
+            # Read the file's bytes in chunks.
+            bytes_read = file.read(MAX_BYTES)
+            # If we are done with sending the file.
+            if not bytes_read:
+                print("(+) Done with reading file.")
+                break
+            # Creating a tuple to send for the current chunk of data.
+            chunk = (bytes_read, seq_num)
+            # Adding the chunk to the list.
+            chunks.append(chunk)
+            # Increasing the seq_num by one.
+            seq_num += 1
+    # Close the byte-stream.
+    file.close()
+    # Saving the size of the file.
+    num_of_chunks = len(chunks)
+    # ---------------------------------- START THREAD TO RECEIVE ACKS ----------------------------------#
+    thread = threading.Thread(target=receiveACKS, args=(client_socket, chunks))
+    thread.start()
+    # ---------------------------------- SENDING FILE ----------------------------------#
+    # While there is chunks to send.
+    while window_start < num_of_chunks:
+        # Sending all the packets in the current window.
+        while WINDOW_SIZE > next_seq - window_start:
+            chunk_bytes = pickle.dumps(chunks[next_seq])
+            client_socket.sendto(chunk_bytes, SERVER_ADDRESS)
+            print('(+) Sent packet #', next_seq)
+
     # Close the socket.
     client_socket.close()
 
@@ -181,6 +249,34 @@ def downloadFromServerRUDP(file_name, save_path):
     sleep(0.2)
     # Close the socket.
     client_socket.close()
+
+
+def receiveACKS(client_socket, chunks):
+    global window_start
+    while True:
+        # Receiving an ACK from the server.
+        msg, addr = client_socket.recvfrom(PACKET_SIZE)
+        receive = pickle.loads(msg)
+        print("(+) Receive ACK for packet #:", receive[1])
+        if window_start <= receive[1]:
+            lock.acquire()
+            # Updating the start index of the window.
+            window_start = receive[1] + 1
+            lock.release()
+        else:
+            print("(-) Didn't receive ack for packet #:", receive[1] + 1)
+            chunk_bytes = pickle.dumps(chunks[receive[1] + 1])
+            client_socket.sendto(chunks[receive[1] + 1], SERVER_ADDRESS)
+            print("(+) Retransmitted packet #", receive[1] + 1)
+
+
+# A method to receive message from the client.
+def receiveMessage(client_socket):
+    try:
+        msg, addr = client_socket.recvfrom(PACKET_SIZE)
+        return msg
+    except socket.timeout as e:
+        return "(-) Timeout occurred."
 
 
 def uploadToServerTCP(gui_object, file_path):

@@ -1,3 +1,4 @@
+import pickle
 from time import sleep
 from scapy.all import *
 
@@ -5,7 +6,7 @@ MAX_BYTES = 4096
 CLIENT_PORT = 20781
 SERVER_PORT = 30413
 PACKET_SIZE = 1024
-WINDOW_SIZE = 5
+WINDOW_SIZE = 4
 TIMEOUT = 5  # In seconds
 CC_CUBIC = b"cubic"
 LOCAL_IP = '127.0.0.1'
@@ -13,14 +14,25 @@ LOCAL_IP = '127.0.0.1'
 
 # Method to upload a file to the server using RUDP.
 def uploadRUDP():
+    # Setting timeout for the socket.
+    server_socket.settimeout(TIMEOUT)
+    # ---------------------------------- 3 WAY HAND SHAKE ----------------------------------#
     print("\n<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>")
     print("(*) Establishing a RUDP connection and preparing to upload...")
-    # Sending SYN-ACK message to client.
     server_socket.sendto("SYN-ACK".encode(), client_address)
     print("(+) Sent SYN-ACK message.")
-    # Receiving ACK message to complete establishing a connection.
-    msg, addr = server_socket.recvfrom(PACKET_SIZE)
+    try:
+        # Receiving ACK message to complete establishing a connection.
+        msg, addr = server_socket.recvfrom(PACKET_SIZE)
+        msg = msg.decode()
+    except socket.error as error:
+        server_socket.sendto("NACK".encode(), client_address)
+        print("(-) Timeout occurred: sending NACK", error)
     print("(+) Connection established with: ", addr)
+    server_socket.settimeout(None)
+
+    data, address = server_socket.recvfrom(1024)
+
 
 
 # Method to send a file to the client using RUDD.
@@ -138,13 +150,18 @@ if __name__ == "__main__":
         except socket.error as e:
             print("(-) Binding failed:", e)
             exit(1)
-        while True:
-            print("(*) Listening...")
-            request, address = server_socket.recvfrom(PACKET_SIZE)
-            if request.decode() == "upload":
-                uploadRUDP()
-            if request.decode() == "download":
-                downloadRUDP()
+        try:
+            while True:
+                print("(*) Listening...")
+                request, address = server_socket.recvfrom(PACKET_SIZE)
+                if request.decode() == "upload":
+                    uploadRUDP()
+                if request.decode() == "download":
+                    downloadRUDP()
+        finally:
+            # Closing the server socket.
+            server_socket.close()
+
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> TCP PROTOCOL HANDLE <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< #
 
     if protocol_choice.decode() == "TCP":
@@ -180,4 +197,3 @@ if __name__ == "__main__":
         finally:
             # Closing the server socket.
             server_socket.close()
-

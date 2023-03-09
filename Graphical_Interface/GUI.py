@@ -112,7 +112,7 @@ class GUI:
             if self.radio.get() == 1:
                 uploadToServerTCP(self, file_path)
             if self.radio.get() == 2:
-                uploadToServerRUDP(file_path)
+                uploadToServerRUDP(self, file_path)
 
     # Choose RUDP as the communication protocol.
     def chooseRUDP(self):
