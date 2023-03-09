@@ -4,6 +4,7 @@ import customtkinter
 from Application.FTP_client import *
 from Application.FTP_server import *
 from Graphical_Interface.Download import Download
+from Graphical_Interface.StopUpload import StopUpload
 
 
 class GUI:
@@ -97,8 +98,8 @@ class GUI:
     # Downloads file from the server.
     def download_win(self):
         download_window = Download(self.getDomain())
-        download_window.create_download_win(self.radio.get())
-        download_window.runDownloadWindow()
+        download_window.createWindow(self.radio.get())
+        download_window.run()
 
     # Uploads file from the file explorer.
     def upload_win(self):
@@ -150,8 +151,12 @@ class GUI:
             self.entry.delete(0, tkinter.END)
             return ""
 
-    def prints(self):
-        print("s")
+    def userUploadChoice(self):
+        userChoice = StopUpload()
+        userChoice.createWindow()
+        userChoice.run()
+        return userChoice.getChoice()
+
 
     def runGUI(self):
         self.root.mainloop()

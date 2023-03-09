@@ -48,7 +48,7 @@ def uploadTCP():
             bytes_to_write = connection.recv(MAX_BYTES)
             # If we are done with sending the file.
             if not bytes_to_write:
-                print("(+) Done with uploading file.")
+                print("(+) Done.")
                 file.close()
                 break
             # Write to the file the bytes we just received

@@ -209,13 +209,13 @@ def uploadToServerTCP(gui_object, file_path):
     # Get the file size.
     file_size = os.path.getsize(file_path)
     # Send the file's size.
-    client_socket.sendall(str(file_size).encode())
+    client_socket.send(str(file_size).encode())
     print("(+) Sent the file's size to the server.")
     sleep(0.2)
     # Get the file name.
     file_name = os.path.basename(file_path)
     # Send the file's name.
-    client_socket.sendall(file_name.encode())
+    client_socket.send(file_name.encode())
     print("(+) Sent the file's name to the server.")
     # Open and send the file to the server.
     with open(file_path, "rb") as mid:
@@ -232,7 +232,10 @@ def uploadToServerTCP(gui_object, file_path):
                     break
                 # Check if got to the half the file and ask if to stop.
                 if seq_num == (total_packets_to_send // 2):
-                    input("Do you want to continue? Y/N")
+                    option = gui_object.userUploadChoice()
+
+                    if option is False:
+                        break
                 # Sending the file in chunks.
                 client_socket.sendall(bytes_to_send)
                 print("Sent:", seq_num, "/", total_packets_to_send)

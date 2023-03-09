@@ -15,7 +15,7 @@ class Download:
         self.protocol = None
         self.domain = domain
 
-    def create_download_win(self, protocol):
+    def createWindow(self, protocol):
         # Define the window appearance.
         self.root = customtkinter.CTk()
         self.root.title(self.domain)
@@ -52,7 +52,8 @@ class Download:
                                                       hover_color="green")
         self.downloadNowBtn.pack(side="bottom")
 
-    def runDownloadWindow(self):
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> WINDOW Methods <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< #
+    def run(self):
         self.root.mainloop()
 
     # Occurs when clicking on the download now button.
