@@ -30,6 +30,8 @@ class GUI:
         self.root.geometry("500x500")
         # Remember to delete later.
         self.root.geometry("+1920+0")
+        # Define protocol when closing GUI.
+        self.root.protocol("WM_DELETE_WINDOW", self.root.quit())
 
         # Define the frame.
         frame = customtkinter.CTkFrame(master=self.root)
@@ -79,10 +81,18 @@ class GUI:
 
     # Function that calls connectDNS().
     def connectDomain(self):
-        if self.radio.get() == 1:
-            self.domain_ip = connectDNS(self, self.client_ip, self.dns_ip, "TCP")
-        else:
-            self.domain_ip = connectDNS(self, self.client_ip, self.dns_ip, "RUDP")
+        self.domain_ip = connectDNS(self, self.client_ip, self.dns_ip)
+        print("\n*********************************")
+        # Create UDP socket.
+        print("(*) Creating UDP socket...")
+        client_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        # Make the ports reusable.
+        client_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # Send the chosen protocol to the server.
+        client_sock.sendto(self.getDomain().encode(), SERVER_ADDRESS)
+        print("(+) Sent the server the domain.")
+        # Close the socket.
+        client_sock.close()
 
     # Downloads file from the server.
     def download_win(self):
@@ -99,7 +109,7 @@ class GUI:
         # Checking which radio button is selected (RUDP / TCP ).
         else:
             if self.radio.get() == 1:
-                uploadToServerTCP(file_path)
+                uploadToServerTCP(self, file_path)
             if self.radio.get() == 2:
                 uploadToServerRUDP(file_path)
 
@@ -139,6 +149,9 @@ class GUI:
             self.uploadButton.configure(True, state=DISABLED)
             self.entry.delete(0, tkinter.END)
             return ""
+
+    def prints(self):
+        print("s")
 
     def runGUI(self):
         self.root.mainloop()

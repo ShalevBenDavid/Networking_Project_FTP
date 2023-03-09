@@ -17,6 +17,7 @@ SERVER_PORT = 30413
 PACKET_SIZE = 1024
 WINDOW_SIZE = 5
 TIMEOUT = 2
+CC_RENO = b"reno"
 LOCAL_IP = '127.0.0.1'
 SERVER_ADDRESS = ('localhost', SERVER_PORT)  # A tuple to represent the server.
 
@@ -100,7 +101,7 @@ def connectDHCP():
 
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Connect DNS <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< #
-def connectDNS(gui_object, client_ip, dns_ip, protocol):
+def connectDNS(gui_object, client_ip, dns_ip):
     print("\n*********************************")
     print("(*) Connecting to DNS server...")
 
@@ -129,26 +130,6 @@ def connectDNS(gui_object, client_ip, dns_ip, protocol):
     if answer[0][3].rcode != 3:
         gui_object.enable_buttons()
         print("(+) DNS answer: ", answer[0][3].an.rdata)
-        if protocol == "RUDP":
-            client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            # Make the ports reusable.
-            client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            # Send the chosen protocol to the server.
-            client_socket.sendto(domain_name.encode(), SERVER_ADDRESS)
-            print("(+) Sent the server the domain.")
-            # Close the socket.
-            client_socket.close()
-        elif protocol == "TCP":
-            # Create TCP socket.
-            client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            # Make the ports reusable.
-            client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            # Connect to the server.
-            client_socket.connect(SERVER_ADDRESS)
-            # Send the chosen protocol to the server.
-            client_socket.sendall(domain_name.encode())
-            # Close the socket.
-            client_socket.close()
         return answer[0][3].an.rdata
     else:
         print("(-) DNS failed. Try again.")
@@ -202,13 +183,16 @@ def downloadFromServerRUDP(file_name, save_path):
     client_socket.close()
 
 
-def uploadToServerTCP(file_path):
+def uploadToServerTCP(gui_object, file_path):
     # ---------------------------------- CREATE CLIENT SOCKET ----------------------------------#
     print("\n*********************************")
+    # Create TCP socket.
     print("(*) Creating the client socket...")
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     # Make the ports reusable.
     client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    # Change the CC algorithm (only if using LINUX system).
+    # client_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_CONGESTION, CC_RENO)
     # Binding address and port to the socket.
     try:
         client_socket.bind((LOCAL_IP, CLIENT_PORT))
@@ -234,36 +218,39 @@ def uploadToServerTCP(file_path):
     client_socket.sendall(file_name.encode())
     print("(+) Sent the file's name to the server.")
     # Open and send the file to the server.
-    with open(file_path, "rb") as file:
-        seq_num = 0
-        total_packets_to_send = file_size // MAX_BYTES
-        print("(*) Sending the file...")
-        while True:
-            # Read the file's bytes in chunks.
-            bytes_to_send = file.read(MAX_BYTES)
-            # If we are done with sending the file.
-            if not bytes_to_send:
-                print("(+) Done with sending file.")
-                break
-            # Sending the file in chunks.
-            client_socket.sendall(bytes_to_send)
-            print("Sent:", seq_num, "/", total_packets_to_send)
-            seq_num += 1
-    # Close the byte-stream.
+    with open(file_path, "rb") as mid:
+        with open(file_path, "rb") as file:
+            seq_num = 0
+            total_packets_to_send = file_size // MAX_BYTES
+            print("(*) Sending the file...")
+            while True:
+                # Read the file's bytes in chunks.
+                bytes_to_send = file.read(MAX_BYTES)
+                # If we are done with sending the file.
+                if not bytes_to_send:
+                    print("(+) Done with sending file.")
+                    break
+                # Check if got to the half the file and ask if to stop.
+                if seq_num == (total_packets_to_send // 2):
+                    input("Do you want to continue? Y/N")
+                # Sending the file in chunks.
+                client_socket.sendall(bytes_to_send)
+                print("Sent:", seq_num, "/", total_packets_to_send)
+                seq_num += 1
+        # Close the byte-stream.
     file.close()
-    # Close the socket.
-    client_socket.shutdown(socket.SHUT_WR)
-    client_socket.close()
-    print("closed")
 
 
 def downloadFromServerTCP(file_name, save_path):
     # ---------------------------------- CREATE CLIENT SOCKET ----------------------------------#
     print("\n*********************************")
+    # Create TCP socket.
     print("(*) Creating the client socket...")
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     # Make the ports reusable.
     client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    # Change the CC algorithm (only if using LINUX system).
+    # client_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_CONGESTION, CC_RENO)
     # Binding address and port to the socket.
     try:
         client_socket.bind((LOCAL_IP, CLIENT_PORT))
@@ -273,14 +260,16 @@ def downloadFromServerTCP(file_name, save_path):
         exit(1)
     # Connect to the server.
     client_socket.connect(SERVER_ADDRESS)
-    client_socket.sendall("download".encode())
+    print("(+) Connected to the server.")
+    client_socket.send("download".encode())
     print("(+) Notified the server we want to download.")
     sleep(0.2)
     # ---------------------------------- RECEIVE THE FILE FROM THE SERVER ----------------------------------#
-    client_socket.sendall(file_name.encode())
+    client_socket.send(file_name.encode())
     print("(+) Sent request to download:", file_name)
     # Create the file directory (where we want to download the file).
     file_directory = save_path + "/" + file_name
+    sleep(0.2)
     with open(file_directory, "wb") as file:
         print("(*) Downloading the file...")
         while True:
@@ -295,9 +284,7 @@ def downloadFromServerTCP(file_name, save_path):
     # Close the byte-stream.
     file.close()
     # Close the socket.
-    client_socket.shutdown(socket.SHUT_WR)
     client_socket.close()
-    print("closed")
 
 
 def sendCommunicationType(protocol):
@@ -318,11 +305,11 @@ def sendCommunicationType(protocol):
     print("(+) Sent the", protocol, "communication protocol to the server.")
     # Close the socket.
     protocol_socket.close()
-    print("closed")
 
 
 if __name__ == '__main__':
     from Graphical_Interface.GUI import GUI
+
     CLIENT_IP, DNS_IP = connectDHCP()
     gui = GUI(CLIENT_IP, DNS_IP)
     gui.createGUI()
