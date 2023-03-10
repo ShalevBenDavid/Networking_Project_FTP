@@ -27,6 +27,7 @@ LOCAL_IP = '127.0.0.1'
 SERVER_ADDRESS = ('localhost', SERVER_PORT)  # A tuple to represent the server.
 lock = threading.Lock()
 window_start = 0  # Starting index for the window.
+next_seq = 0  # Next packet to send.
 
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Connect DHCP <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< #
@@ -169,7 +170,7 @@ def uploadToServerRUDP(gui_object, file_path):
         if msg.decode() == "SYN-ACK":
             print("(+) Received SYN-ACK message.")
     except socket.error as e:
-        print("(-) Timeout occurred")
+        print("(-) Timeout occurred.")
         # Close the socket.
         client_socket.close()
         return
@@ -179,16 +180,9 @@ def uploadToServerRUDP(gui_object, file_path):
     # ---------------------------------- SEND THE FILE TO THE SERVER ----------------------------------#
     # Initializing variables to track reliability.
     seq_num = 0  # Current seq number.
-    next_seq = 0  # Next packet to send.
     chunks = []  # List that holds all the file's chunks.
-    index_buffer = []  # Holds the index packet to be sent.
+    global next_seq, window_start
 
-    # Get the file size.
-    file_size = os.path.getsize(file_path)
-    # Send the file's size.
-    client_socket.sendto(str(file_size).encode(), SERVER_ADDRESS)
-    print("(+) Sent the file's size to the server.")
-    sleep(0.2)
     # Get the file name.
     file_name = os.path.basename(file_path)
     # Send the file's name.
@@ -214,6 +208,9 @@ def uploadToServerRUDP(gui_object, file_path):
     file.close()
     # Saving the size of the file.
     num_of_chunks = len(chunks)
+    # Send the number of chunks to be expected to the server.
+    client_socket.sendto(str(num_of_chunks).encode(), SERVER_ADDRESS)
+    print("(+) Sent the number of chunks to the server.")
     # ---------------------------------- START THREAD TO RECEIVE ACKS ----------------------------------#
     thread = threading.Thread(target=receiveACKS, args=(client_socket, chunks))
     thread.start()
@@ -222,10 +219,19 @@ def uploadToServerRUDP(gui_object, file_path):
     while window_start < num_of_chunks:
         # Sending all the packets in the current window.
         while WINDOW_SIZE > next_seq - window_start:
-            chunk_bytes = pickle.dumps(chunks[next_seq])
-            client_socket.sendto(chunk_bytes, SERVER_ADDRESS)
-            print('(+) Sent packet #', next_seq)
-
+            if next_seq < num_of_chunks:
+                chunk_bytes = pickle.dumps(chunks[next_seq])
+                client_socket.sendto(chunk_bytes, SERVER_ADDRESS)
+                print('(+) Sent packet #', next_seq)
+                next_seq += 1
+            else:
+                break
+    # Make main thread to wait for the current thread to finish.
+    thread.join()
+    client_socket.settimeout(None)
+    # Resetting the values.
+    window_start = 0
+    next_seq = 0
     # Close the socket.
     client_socket.close()
 
@@ -252,22 +258,32 @@ def downloadFromServerRUDP(file_name, save_path):
 
 
 def receiveACKS(client_socket, chunks):
-    global window_start
+    global window_start, next_seq
     while True:
-        # Receiving an ACK from the server.
-        msg, addr = client_socket.recvfrom(PACKET_SIZE)
-        receive = pickle.loads(msg)
-        print("(+) Receive ACK for packet #:", receive[1])
-        if window_start <= receive[1]:
-            lock.acquire()
-            # Updating the start index of the window.
-            window_start = receive[1] + 1
-            lock.release()
-        else:
-            print("(-) Didn't receive ack for packet #:", receive[1] + 1)
-            chunk_bytes = pickle.dumps(chunks[receive[1] + 1])
-            client_socket.sendto(chunks[receive[1] + 1], SERVER_ADDRESS)
-            print("(+) Retransmitted packet #", receive[1] + 1)
+        try:
+            # Receiving an ACK from the server.
+            msg, addr = client_socket.recvfrom(MAX_BYTES)
+            receive = pickle.loads(msg)
+            print("(+) Receive ACK for packet #:", receive[1])
+            # If we got an ACK for a packet in the window.
+            if window_start <= receive[1]:
+                lock.acquire()
+                # Updating the start index of the window.
+                print("(+) Moving window by one.")
+                window_start = receive[1] + 1
+                lock.release()
+            else:
+                print("(-) Didn't receive ack for packet #:", receive[1] + 1)
+                chunk_bytes = pickle.dumps(chunks[receive[1] + 1])
+                client_socket.sendto(chunk_bytes, SERVER_ADDRESS)
+                print("(+) Retransmitted packet #", receive[1] + 1)
+        except socket.timeout as e:
+            if window_start < len(chunks):
+                print("(-) Timeout occurred. Need to resend packet #", window_start)
+                next_seq = window_start
+            else:
+                print("(+) Sent all packets successfully.")
+                return
 
 
 # A method to receive message from the client.
@@ -314,30 +330,30 @@ def uploadToServerTCP(gui_object, file_path):
     client_socket.send(file_name.encode())
     print("(+) Sent the file's name to the server.")
     # Open and send the file to the server.
-    with open(file_path, "rb") as mid:
-        with open(file_path, "rb") as file:
-            seq_num = 0
-            total_packets_to_send = file_size // MAX_BYTES
-            print("(*) Sending the file...")
-            while True:
-                # Read the file's bytes in chunks.
-                bytes_to_send = file.read(MAX_BYTES)
-                # If we are done with sending the file.
-                if not bytes_to_send:
-                    print("(+) Done with sending file.")
+    with open(file_path, "rb") as file:
+        seq_num = 0
+        total_packets_to_send = file_size // MAX_BYTES
+        print("(*) Sending the file...")
+        while True:
+            # Read the file's bytes in chunks.
+            bytes_to_send = file.read(MAX_BYTES)
+            # If we are done with sending the file.
+            if not bytes_to_send:
+                print("(+) Done with sending file.")
+                break
+            # Check if got to the half the file and ask if to stop.
+            if seq_num == (total_packets_to_send // 2):
+                option = gui_object.userUploadChoice()
+                if option is False:
                     break
-                # Check if got to the half the file and ask if to stop.
-                if seq_num == (total_packets_to_send // 2):
-                    option = gui_object.userUploadChoice()
-
-                    if option is False:
-                        break
-                # Sending the file in chunks.
-                client_socket.sendall(bytes_to_send)
-                print("Sent:", seq_num, "/", total_packets_to_send)
-                seq_num += 1
-        # Close the byte-stream.
+            # Sending the file in chunks.
+            client_socket.sendall(bytes_to_send)
+            print("Sent:", seq_num, "/", total_packets_to_send)
+            seq_num += 1
+    # Close the byte-stream.
     file.close()
+    # Close the socket.
+    client_socket.close()
 
 
 def downloadFromServerTCP(file_name, save_path):

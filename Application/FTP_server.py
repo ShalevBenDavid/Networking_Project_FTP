@@ -2,7 +2,7 @@ import pickle
 from time import sleep
 from scapy.all import *
 
-MAX_BYTES = 4096
+MAX_BYTES = 8192
 CLIENT_PORT = 20781
 SERVER_PORT = 30413
 PACKET_SIZE = 1024
@@ -10,10 +10,13 @@ WINDOW_SIZE = 4
 TIMEOUT = 5  # In seconds
 CC_CUBIC = b"cubic"
 LOCAL_IP = '127.0.0.1'
+next_seq = 0  # The sequence number of the next expected packet.
 
 
 # Method to upload a file to the server using RUDP.
 def uploadRUDP():
+    global next_seq
+    data_buffer = []  # Holds all the packets.
     # Setting timeout for the socket.
     server_socket.settimeout(TIMEOUT)
     # ---------------------------------- 3 WAY HAND SHAKE ----------------------------------#
@@ -29,10 +32,41 @@ def uploadRUDP():
         server_socket.sendto("NACK".encode(), client_address)
         print("(-) Timeout occurred: sending NACK", error)
     print("(+) Connection established with: ", addr)
+    # Disabling the timeout for the socket.
     server_socket.settimeout(None)
-
-    data, address = server_socket.recvfrom(1024)
-
+    # Receiving the file name from the client.
+    file_name, addr = server_socket.recvfrom(PACKET_SIZE)
+    # Create the file directory (where we want to upload the file).
+    file_directory = "../Domains/" + domain.decode() + "/" + file_name.decode()
+    # Receiving the number of expected chunks.
+    expected_chunks, addr = server_socket.recvfrom(PACKET_SIZE)
+    # ---------------------------------- RECEIVE THE FILE FROM THE CLIENT ----------------------------------#
+    with open(file_directory, "wb") as file:
+        while next_seq < int(expected_chunks.decode()):
+            data_pickel, addr = server_socket.recvfrom(MAX_BYTES)
+            data = pickle.loads(data_pickel)
+            print("(+) Received packet #", data[1])
+            # If we received the packet expected.
+            if data[1] == next_seq:
+                print("(+) Received the expected packet. Sending ack for it.")
+                # Updating the next expected sequence.
+                next_seq += 1
+                # Sending ACK for the packet
+                ack = pickle.dumps(("ACK", data[1]))
+                server_socket.sendto(ack, client_address)
+                # Write to the file the data we just received
+                file.write(data[0])
+            # Packet loss occurred.
+            else:
+                print("(-) Got packet out of order. Starting Dup ACK.")
+                # Sending Dup ACK.
+                dup_ack = pickle.dumps(("DUP ACK", next_seq - 1))
+                server_socket.sendto(dup_ack, client_address)
+        print("(+) Done uploading file.")
+    # Closing the file.
+    file.close()
+    # Resetting the value.
+    next_seq = 0
 
 
 # Method to send a file to the client using RUDD.
@@ -96,7 +130,7 @@ def downloadTCP():
 
 
 if __name__ == "__main__":
-    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> RECEIVE THE PROTOCl <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< #
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> RECEIVE THE PROTOCOl <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< #
     # Starting server.
     print("(*) Starting application server...")
     # Create UDP socket to check which protocol to use.
@@ -153,7 +187,7 @@ if __name__ == "__main__":
         try:
             while True:
                 print("(*) Listening...")
-                request, address = server_socket.recvfrom(PACKET_SIZE)
+                request, address = server_socket.recvfrom(MAX_BYTES)
                 if request.decode() == "upload":
                     uploadRUDP()
                 if request.decode() == "download":
