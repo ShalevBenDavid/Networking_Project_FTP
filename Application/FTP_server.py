@@ -7,16 +7,17 @@ CLIENT_PORT = 20781
 SERVER_PORT = 30413
 PACKET_SIZE = 1024
 WINDOW_SIZE = 4
-TIMEOUT = 5  # In seconds
+TIMEOUT = 2  # In seconds
 CC_CUBIC = b"cubic"
 LOCAL_IP = '127.0.0.1'
+lock = threading.Lock()  # Lock for threading (receiving messages).
+window_start = 0  # Starting index for the window.
 next_seq = 0  # The sequence number of the next expected packet.
 
 
 # Method to upload a file to the server using RUDP.
 def uploadRUDP():
     global next_seq
-    data_buffer = []  # Holds all the packets.
     # Setting timeout for the socket.
     server_socket.settimeout(TIMEOUT)
     # ---------------------------------- 3 WAY HAND SHAKE ----------------------------------#
@@ -27,10 +28,12 @@ def uploadRUDP():
     try:
         # Receiving ACK message to complete establishing a connection.
         msg, addr = server_socket.recvfrom(PACKET_SIZE)
-        msg = msg.decode()
-    except socket.error as error:
+        if msg.decode() == "ACK":
+            print("(+) Received ACK.")
+    except socket.timeout as error:
         server_socket.sendto("NACK".encode(), client_address)
-        print("(-) Timeout occurred: sending NACK", error)
+        print("(-) Timeout occurred - sending NACK:", error)
+        return
     print("(+) Connection established with: ", addr)
     # Disabling the timeout for the socket.
     server_socket.settimeout(None)
@@ -71,8 +74,112 @@ def uploadRUDP():
 
 # Method to send a file to the client using RUDD.
 def downloadRUDP():
+    global next_seq, window_start
+    # Setting timeout for the socket.
+    server_socket.settimeout(TIMEOUT)
     print("\n<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>")
     print("(*) Establishing a RUDP connection and preparing to download...")
+    server_socket.sendto("SYN-ACK".encode(), client_address)
+    print("(+) Sent SYN-ACK message.")
+    try:
+        # Receiving ACK message to complete establishing a connection.
+        msg, addr = server_socket.recvfrom(PACKET_SIZE)
+        if msg.decode() == "ACK":
+            print("(+) Received ACK.")
+    except socket.timeout as error:
+        server_socket.sendto("NACK".encode(), client_address)
+        print("(-) Timeout occurred - sending NACK:", error)
+        return
+    print("(+) Connection established with: ", addr)
+    sleep(0.2)
+    try:
+        # Receive the file's name that the client wants to download from the domain.
+        file_name, addr = server_socket.recvfrom(PACKET_SIZE)
+        print("(+) File name to download:", file_name.decode())
+        # Create the file directory (the location of the requested file).
+        file_path = "../Domains/" + domain.decode() + "/" + file_name.decode()
+    except socket.timeout as error:
+        server_socket.sendto("NACK".encode(), client_address)
+        print("(-) Timeout occurred - sending NACK:", error)
+        return
+    # ---------------------------------- READING THE FILE ----------------------------------#
+    # Initializing variables to track reliability.
+    seq_num = 0  # Current seq number.
+    chunks = []  # List that holds all the file's chunks.
+    print("(*) Reading the file...")
+    with open(file_path, "rb") as file:
+        while True:
+            # Read the file's bytes in chunks.
+            bytes_read = file.read(MAX_BYTES)
+            # If we are done with sending the file.
+            if not bytes_read:
+                print("(+) Done with reading file.")
+                break
+            # Creating a tuple to send for the current chunk of data.
+            chunk = (bytes_read, seq_num)
+            # Adding the chunk to the list.
+            chunks.append(chunk)
+            # Increasing the seq_num by one.
+            seq_num += 1
+    # Close the byte-stream.
+    file.close()
+    # Saving the size of the file.
+    num_of_chunks = len(chunks)
+    # Send the number of chunks to be expected to the server.
+    print(num_of_chunks)
+    server_socket.sendto(str(num_of_chunks).encode(), client_address)
+    print("(+) Sent the number of chunks to the server.")
+    # ---------------------------------- START THREAD TO RECEIVE ACKS ----------------------------------#
+    thread = threading.Thread(target=receiveACKS, args=(server_socket, chunks))
+    thread.start()
+    # ---------------------------------- SENDING FILE ----------------------------------#
+    # While there is chunks to send.
+    while window_start < num_of_chunks:
+        # Sending all the packets in the current window.
+        while WINDOW_SIZE > next_seq - window_start:
+            if next_seq < num_of_chunks:
+                chunk_bytes = pickle.dumps(chunks[next_seq])
+                server_socket.sendto(chunk_bytes, client_address)
+                print('(+) Sent packet #', next_seq)
+                next_seq += 1
+            else:
+                break
+    # Make main thread to wait for the current thread to finish.
+    thread.join()
+    # Disabling the timeout for the socket.
+    server_socket.settimeout(None)
+    # Resetting the values.
+    window_start = 0
+    next_seq = 0
+
+
+def receiveACKS(server_socket, chunks):
+    global window_start, next_seq
+    while True:
+        try:
+            # Receiving an ACK from the server.
+            msg, addr = server_socket.recvfrom(MAX_BYTES)
+            receive = pickle.loads(msg)
+            print("(+) Receive ACK for packet #:", receive[1])
+            # If we got an ACK for a packet in the window.
+            if window_start <= receive[1]:
+                lock.acquire()
+                # Updating the start index of the window.
+                print("(+) Moving window by one.")
+                window_start = receive[1] + 1
+                lock.release()
+            else:
+                print("(-) Didn't receive ack for packet #:", receive[1] + 1)
+                chunk_bytes = pickle.dumps(chunks[receive[1] + 1])
+                server_socket.sendto(chunk_bytes, client_address)
+                print("(+) Retransmitted packet #", receive[1] + 1)
+        except socket.timeout:
+            if window_start < len(chunks):
+                print("(-) Timeout occurred. Need to resend packet #", window_start)
+                next_seq = window_start
+            else:
+                print("(+) Sent all packets successfully.")
+                return
 
 
 # Method to upload a file to the server using TCP.

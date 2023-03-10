@@ -11,8 +11,8 @@ DNS_PORT = 53
 # List of domains and their IP address (All local)
 Domains = {
     'ftplace.org': '192.168.2.1',
-    'google.com': '192.168.2.2',
-    'Outlook.net': '192.168.2.3'
+    'naruto.com': '192.168.2.2',
+    'shuster.net': '192.168.2.3'
 }
 
 if __name__ == '__main__':

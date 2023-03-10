@@ -83,17 +83,18 @@ class GUI:
     # Function that calls connectDNS().
     def connectDomain(self):
         self.domain_ip = connectDNS(self, self.client_ip, self.dns_ip)
-        print("\n*********************************")
-        # Create UDP socket.
-        print("(*) Creating UDP socket...")
-        client_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        # Make the ports reusable.
-        client_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        # Send the chosen protocol to the server.
-        client_sock.sendto(self.getDomain().encode(), SERVER_ADDRESS)
-        print("(+) Sent the server the domain.")
-        # Close the socket.
-        client_sock.close()
+        if self.domain_ip:
+            print("\n*********************************")
+            # Create UDP socket.
+            print("(*) Creating UDP socket...")
+            client_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            # Make the ports reusable.
+            client_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            # Send the chosen protocol to the server.
+            client_sock.sendto(self.getDomain().encode(), SERVER_ADDRESS)
+            print("(+) Sent the server the domain.")
+            # Close the socket.
+            client_sock.close()
 
     # Downloads file from the server.
     def download_win(self):
@@ -112,17 +113,19 @@ class GUI:
             if self.radio.get() == 1:
                 uploadToServerTCP(self, file_path)
             if self.radio.get() == 2:
-                uploadToServerRUDP(self, file_path)
+                uploadToServerRUDP(file_path)
 
     # Choose RUDP as the communication protocol.
     def chooseRUDP(self):
         self.okButton.configure(True, state=NORMAL)
+        self.rudpRadio.configure(True, state=DISABLED)
         self.tcpRadio.pack_forget()
         sendCommunicationType("RUDP")
 
     # Choose TCP as the communication protocol.
     def chooseTCP(self):
         self.okButton.configure(True, state=NORMAL)
+        self.tcpRadio.configure(True, state=DISABLED)
         self.rudpRadio.pack_forget()
         sendCommunicationType("TCP")
 
@@ -156,7 +159,6 @@ class GUI:
         userChoice.createWindow()
         userChoice.run()
         return userChoice.getChoice()
-
 
     def runGUI(self):
         self.root.mainloop()
