@@ -33,6 +33,8 @@ def uploadRUDP():
     except socket.timeout as error:
         server_socket.sendto("NACK".encode(), client_address)
         print("(-) Timeout occurred - sending NACK:", error)
+        # Disabling the timeout for the socket.
+        server_socket.settimeout(None)
         return
     print("(+) Connection established with: ", addr)
     # Disabling the timeout for the socket.

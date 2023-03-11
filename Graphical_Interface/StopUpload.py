@@ -1,5 +1,5 @@
-import tkinter
-from tkinter import DISABLED, NORMAL, messagebox, filedialog
+from tkinter import DISABLED
+
 import customtkinter
 
 

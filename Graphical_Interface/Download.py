@@ -1,7 +1,8 @@
-import os
 import tkinter
-from tkinter import DISABLED, NORMAL, messagebox, filedialog
+from tkinter import NORMAL, messagebox, filedialog
+
 import customtkinter
+
 from Application.FTP_client import *
 
 

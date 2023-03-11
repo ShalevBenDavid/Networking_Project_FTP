@@ -1,9 +1,4 @@
-import _thread
 import pickle
-import socket
-import threading
-from time import sleep
-from tkinter.tix import MAX
 
 from scapy.all import *
 from scapy.layers.dhcp import DHCP, BOOTP
@@ -11,6 +6,8 @@ from scapy.layers.dns import DNS, DNSQR
 from scapy.layers.inet import UDP, IP
 from scapy.layers.l2 import Ether
 from scapy.sendrecv import sendp, sniff
+
+from Send import *
 
 MAX_BYTES = 4096
 DHCP_CLIENT_PORT = 68
@@ -230,9 +227,12 @@ def uploadToServerRUDP(file_path):
         while WINDOW_SIZE > next_seq - window_start:
             if next_seq < num_of_chunks:
                 chunk_bytes = pickle.dumps(chunks[next_seq])
-                client_socket.sendto(chunk_bytes, SERVER_ADDRESS)
-                print('(+) Sent packet #', next_seq)
-                next_seq += 1
+                has_sent = packetLossSend(client_socket, chunk_bytes, SERVER_ADDRESS)
+                if has_sent is True:
+                    print('(+) Sent packet #', next_seq)
+                    next_seq += 1
+                else:
+                    print("(-) Didn't send packet #",next_seq)
             else:
                 break
     # Make main thread to wait for the current thread to finish.
@@ -334,8 +334,11 @@ def receiveACKS(client_socket, chunks):
             else:
                 print("(-) Didn't receive ack for packet #:", receive[1] + 1)
                 chunk_bytes = pickle.dumps(chunks[receive[1] + 1])
-                client_socket.sendto(chunk_bytes, SERVER_ADDRESS)
-                print("(+) Retransmitted packet #", receive[1] + 1)
+                has_sent = packetLossSend(client_socket, chunk_bytes, SERVER_ADDRESS)
+                if has_sent is True:
+                    print("(+) Retransmitted packet #", receive[1] + 1)
+                else:
+                    print("(-) Didn't send packet #",receive[1] + 1)
         except socket.timeout as e:
             if window_start < len(chunks):
                 print("(-) Timeout occurred. Need to resend packet #", window_start)
