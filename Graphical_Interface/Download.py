@@ -9,10 +9,11 @@ from Application.FTP_client import *
 class Download:
 
     def __init__(self, domain):
+        self.sortedList = None
+        self.temp_list = None
         self.downloadNowBtn = None
         self.root = None
         self.listbox = None
-        self.sortedlist = None
         self.protocol = None
         self.domain = domain
 
@@ -40,12 +41,12 @@ class Download:
         directory = "../Domains/" + self.domain
         file_list = os.listdir(directory)
         # Create a list to hold all the file names.
-        self.sortedlist = []
+        self.temp_list = []
         for file_name in file_list:
-            self.sortedlist.append(file_name)
-        self.sortedlist.sort()
+            self.temp_list.append(file_name)
+        self.sortedList = sorted(self.temp_list, key=str.lower)
         # Loop through the list and add each file name to the Listbox.
-        for file in self.sortedlist:
+        for file in self.sortedList:
             self.listbox.insert(tkinter.END, file)
 
         # Creating the download button.
@@ -68,7 +69,7 @@ class Download:
             # Ask the user where to download the file.
             save_path = filedialog.askdirectory()
             # Save the requested file's name.
-            file_name = self.sortedlist[index[0]]
+            file_name = self.temp_list[index[0]]
             if self.protocol == 1:
                 downloadFromServerTCP(file_name, save_path)
             if self.protocol == 2:
