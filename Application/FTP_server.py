@@ -79,6 +79,7 @@ def downloadRUDP():
     server_socket.settimeout(TIMEOUT)
     print("\n<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>")
     print("(*) Establishing a RUDP connection and preparing to download...")
+    # ---------------------------------- 3 WAY HAND SHAKE ----------------------------------#
     server_socket.sendto("SYN-ACK".encode(), client_address)
     print("(+) Sent SYN-ACK message.")
     try:
@@ -87,8 +88,7 @@ def downloadRUDP():
         if msg.decode() == "ACK":
             print("(+) Received ACK.")
     except socket.timeout as error:
-        server_socket.sendto("NACK".encode(), client_address)
-        print("(-) Timeout occurred - sending NACK:", error)
+        print("(-) Timeout occurred.", error)
         return
     print("(+) Connection established with: ", addr)
     sleep(0.2)
@@ -99,8 +99,7 @@ def downloadRUDP():
         # Create the file directory (the location of the requested file).
         file_path = "../Domains/" + domain.decode() + "/" + file_name.decode()
     except socket.timeout as error:
-        server_socket.sendto("NACK".encode(), client_address)
-        print("(-) Timeout occurred - sending NACK:", error)
+        print("(-) Timeout occurred.", error)
         return
     # ---------------------------------- READING THE FILE ----------------------------------#
     # Initializing variables to track reliability.
@@ -110,7 +109,7 @@ def downloadRUDP():
     with open(file_path, "rb") as file:
         while True:
             # Read the file's bytes in chunks.
-            bytes_read = file.read(MAX_BYTES)
+            bytes_read = file.read(MAX_BYTES//2)
             # If we are done with sending the file.
             if not bytes_read:
                 print("(+) Done with reading file.")
@@ -125,7 +124,7 @@ def downloadRUDP():
     file.close()
     # Saving the size of the file.
     num_of_chunks = len(chunks)
-    # Send the number of chunks to be expected to the server.
+    # Send the number of chunks to be expected to the client.
     print(num_of_chunks)
     server_socket.sendto(str(num_of_chunks).encode(), client_address)
     print("(+) Sent the number of chunks to the server.")
@@ -157,8 +156,8 @@ def receiveACKS(server_socket, chunks):
     global window_start, next_seq
     while True:
         try:
-            # Receiving an ACK from the server.
-            msg, addr = server_socket.recvfrom(MAX_BYTES)
+            # Receiving an ACK from the client.
+            msg, addr = server_socket.recvfrom(MAX_BYTES//2)
             receive = pickle.loads(msg)
             print("(+) Receive ACK for packet #:", receive[1])
             # If we got an ACK for a packet in the window.

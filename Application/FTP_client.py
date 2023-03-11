@@ -12,7 +12,7 @@ from scapy.layers.inet import UDP, IP
 from scapy.layers.l2 import Ether
 from scapy.sendrecv import sendp, sniff
 
-MAX_BYTES = 8192
+MAX_BYTES = 4096
 DHCP_CLIENT_PORT = 68
 DHCP_SERVER_PORT = 67
 DNS_CLIENT_PORT = 1024
@@ -273,43 +273,21 @@ def downloadFromServerRUDP(file_name, save_path):
             print("(+) Received SYN-ACK message.")
     except socket.error as e:
         print("(-) Timeout occurred: ", e)
-        # Close the socket.
-        client_socket.close()
-        return
     client_socket.sendto("ACK".encode(), SERVER_ADDRESS)
     print("(+) Sent ACK message.")
-    # In case where ACK didn't arrive to the server.
-    try:
-        # Receiving SYN-ACK message from server.
-        msg, addr = client_socket.recvfrom(PACKET_SIZE)
-        if msg.decode() == "NACK":
-            print("(-) Received NACK message. Connection failed.")
-            client_socket.close()
-            return
-    except socket.error:
-        pass
     # ---------------------------------- SEND THE FILE NAME TO THE SERVER ----------------------------------#
     client_socket.sendto(file_name.encode(), SERVER_ADDRESS)
     print("(+) Sent request to download:", file_name)
-    # try:
-    #     # Receiving NACK message from server.
-    #     msg, addr = client_socket.recvfrom(PACKET_SIZE)
-    #     if msg.decode() == "NACK":
-    #         print("(-) Received NACK message. Connection failed.")
-    #         client_socket.close()
-    #         return
-    # except socket.error:
-    #     pass
     # Create the file directory (where we want to download the file).
     file_directory = save_path + "/" + file_name
     # Disabling the timeout for the socket.
     client_socket.settimeout(None)
     # Receiving the number of expected chunks.
     expected_chunks, addr = client_socket.recvfrom(PACKET_SIZE)
-    # ---------------------------------- RECEIVE THE FILE FROM THE CLIENT ----------------------------------#
+    # ---------------------------------- RECEIVE THE FILE FROM THE SERVER ----------------------------------#
     with open(file_directory, "wb") as file:
         while next_seq < int(expected_chunks.decode()):
-            data_pickel, addr = client_socket.recvfrom(MAX_BYTES)
+            data_pickel, addr = client_socket.recvfrom(MAX_BYTES*2)
             data = pickle.loads(data_pickel)
             print("(+) Received packet #", data[1])
             # If we received the packet expected.
@@ -328,7 +306,7 @@ def downloadFromServerRUDP(file_name, save_path):
                 # Sending Dup ACK.
                 dup_ack = pickle.dumps(("DUP ACK", next_seq - 1))
                 client_socket.sendto(dup_ack, SERVER_ADDRESS)
-        print("(+) Done uploading file.")
+        print("(+) Done downloading file.")
     # Closing the file.
     file.close()
     # Resetting the value.
