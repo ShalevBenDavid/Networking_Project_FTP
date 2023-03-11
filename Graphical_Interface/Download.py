@@ -22,6 +22,7 @@ class Download:
         self.root.title(self.domain)
         self.root.geometry("500x400")
         self.root.winfo_toplevel()
+        self.root.protocol("WM_DELETE_WINDOW", self.root.quit())
 
         # Define the protocol the user chose.
         self.protocol = protocol
