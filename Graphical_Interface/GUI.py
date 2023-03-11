@@ -5,6 +5,8 @@ from Application.FTP_client import *
 from Application.FTP_server import *
 from Graphical_Interface.Download import Download
 from Graphical_Interface.StopUpload import StopUpload
+from Graphical_Interface.UploadType import UploadType
+from Application.Send import *
 
 
 class GUI:
@@ -22,7 +24,7 @@ class GUI:
         self.dns_ip = dns_ip
 
     def createGUI(self):
-        # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Create GUI <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< #
+        # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> CREATE GUI <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< #
         # Define the window appearance.
         customtkinter.set_appearance_mode("dark")
         customtkinter.set_default_color_theme("dark-blue")
@@ -78,7 +80,7 @@ class GUI:
                                                      command=self.chooseTCP)
         self.tcpRadio.pack(side="bottom")
 
-    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> GUI Methods <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< #
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> GUI METHODS <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< #
 
     # Function that calls connectDNS().
     def connectDomain(self):
@@ -104,6 +106,7 @@ class GUI:
 
     # Uploads file from the file explorer.
     def upload_win(self):
+        # Choosing file to upload.
         file_path = filedialog.askopenfilename()
         # Checking If he chose nothing.
         if not file_path:
@@ -113,7 +116,22 @@ class GUI:
             if self.radio.get() == 1:
                 uploadToServerTCP(self, file_path)
             if self.radio.get() == 2:
-                uploadToServerRUDP(file_path)
+                # Choosing way to upload.
+                upload_type_win = UploadType()
+                upload_type_win.createWindow()
+                upload_type_win.run()
+                if upload_type_win.method_type == 1:
+                    uploadToServerRUDP(file_path, regularSend)
+                    return
+                elif upload_type_win.method_type == 2:
+                    uploadToServerRUDP(file_path, delaySend)
+                    return
+                elif upload_type_win.method_type == 3:
+                    uploadToServerRUDP(file_path, packetLossSend)
+                    return
+                else:
+                    uploadToServerRUDP(file_path, regularSend)
+                    return
 
     # Choose RUDP as the communication protocol.
     def chooseRUDP(self):

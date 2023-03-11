@@ -11,6 +11,7 @@ class StopUpload:
         self.choice = None
 
     def createWindow(self):
+        # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> CREATE WINDOW <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< #
         # Define the window appearance.
         self.root = customtkinter.CTk()
         self.root.title("File upload reached to half!")
@@ -33,7 +34,7 @@ class StopUpload:
         self.noButton = customtkinter.CTkButton(master=frame, text="NO", command=self.no)
         self.noButton.pack(pady=12, padx=10)
 
-    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> WINDOW Methods <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< #
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> WINDOW METHODS <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< #
     # Handling situation if the user chose yes.
     def yes(self):
         self.disable_buttons()

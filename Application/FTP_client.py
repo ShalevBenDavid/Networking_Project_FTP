@@ -143,7 +143,7 @@ def connectDNS(gui_object, client_ip, dns_ip):
         return None
 
 
-def uploadToServerRUDP(file_path):
+def uploadToServerRUDP(file_path, sendFunc):
     global next_seq, window_start
     # ---------------------------------- CREATE CLIENT SOCKET ----------------------------------#
     print("\n*********************************")
@@ -218,7 +218,7 @@ def uploadToServerRUDP(file_path):
     client_socket.sendto(str(num_of_chunks).encode(), SERVER_ADDRESS)
     print("(+) Sent the number of chunks to the server.")
     # ---------------------------------- START THREAD TO RECEIVE ACKS ----------------------------------#
-    thread = threading.Thread(target=receiveACKS, args=(client_socket, chunks))
+    thread = threading.Thread(target=receiveACKS, args=(client_socket, chunks, sendFunc))
     thread.start()
     # ---------------------------------- SENDING FILE ----------------------------------#
     # While there is chunks to send.
@@ -227,7 +227,7 @@ def uploadToServerRUDP(file_path):
         while WINDOW_SIZE > next_seq - window_start:
             if next_seq < num_of_chunks:
                 chunk_bytes = pickle.dumps(chunks[next_seq])
-                has_sent = packetLossSend(client_socket, chunk_bytes, SERVER_ADDRESS)
+                has_sent = sendFunc(client_socket, chunk_bytes, SERVER_ADDRESS)
                 if has_sent is True:
                     print('(+) Sent packet #', next_seq)
                     next_seq += 1
@@ -316,7 +316,7 @@ def downloadFromServerRUDP(file_name, save_path):
     client_socket.close()
 
 
-def receiveACKS(client_socket, chunks):
+def receiveACKS(client_socket, chunks, sendFunc):
     global window_start, next_seq
     while True:
         try:
@@ -334,11 +334,11 @@ def receiveACKS(client_socket, chunks):
             else:
                 print("(-) Didn't receive ack for packet #:", receive[1] + 1)
                 chunk_bytes = pickle.dumps(chunks[receive[1] + 1])
-                has_sent = packetLossSend(client_socket, chunk_bytes, SERVER_ADDRESS)
+                has_sent = sendFunc(client_socket, chunk_bytes, SERVER_ADDRESS)
                 if has_sent is True:
                     print("(+) Retransmitted packet #", receive[1] + 1)
                 else:
-                    print("(-) Didn't send packet #",receive[1] + 1)
+                    print("(-) Didn't send packet #", receive[1] + 1)
         except socket.timeout as e:
             if window_start < len(chunks):
                 print("(-) Timeout occurred. Need to resend packet #", window_start)

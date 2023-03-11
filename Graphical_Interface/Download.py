@@ -76,3 +76,4 @@ class Download:
     # Define a function to display a pop-up message if bo file selected.
     def error_message(self):
         messagebox.showinfo("Error", "No file was selected!")
+
