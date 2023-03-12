@@ -332,6 +332,7 @@ def receiveACKS(client_socket, chunks, sendFunc):
                 window_start = receive[1] + 1
                 lock.release()
             else:
+                lock.acquire()
                 print("(-) Didn't receive ack for packet #:", receive[1] + 1)
                 chunk_bytes = pickle.dumps(chunks[receive[1] + 1])
                 has_sent = sendFunc(client_socket, chunk_bytes, SERVER_ADDRESS)
@@ -339,12 +340,16 @@ def receiveACKS(client_socket, chunks, sendFunc):
                     print("(+) Retransmitted packet #", receive[1] + 1)
                 else:
                     print("(-) Didn't send packet #", receive[1] + 1)
+                lock.release()
         except socket.timeout as e:
+            lock.acquire()
             if window_start < len(chunks):
                 print("(-) Timeout occurred. Need to resend packet #", window_start)
                 next_seq = window_start
+                lock.release()
             else:
                 print("(+) Sent all packets successfully.")
+                lock.release()
                 return
 
 
