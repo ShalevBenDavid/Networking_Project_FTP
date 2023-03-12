@@ -129,3 +129,5 @@ dmypy.json
 .pyre/
 *.iml
 *.xml
+Domains/.DS_Store
+.DS_Store
